@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>My Start Page</title>
+  <link rel="stylesheet" href="stylesheet.css">
+  <!-- color-scheme を明示（ブラウザのUIも対応しやすくなる） -->
+  <meta name="color-scheme" content="light dark">
+</head>
+<body>
+
+  <main>
+    <h1>ようこそ</h1>
+    <div class="time" id="clock">00:00:00</div>
+
+    <form class="search" action="https://www.google.com/search" method="get" target="_blank">
+      <input type="text" name="q" placeholder="Google で検索..." autofocus autocomplete="off">
+    </form>
+
+    <div class="links">
+      <a href="https://github.com" class="card">GitHub</a>
+      <a href="https://x.com" class="card">X</a>
+      <a href="https://youtube.com" class="card">YouTube</a>
+      <a href="https://news.google.com" class="card">Google News</a>
+      <!-- ここに好きなリンクを追加 -->
+    </div>
+  </main>
+
+  <script src="script.js"></script>
+</body>
+</html>
