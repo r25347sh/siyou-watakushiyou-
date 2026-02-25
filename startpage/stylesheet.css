@@ -1,0 +1,114 @@
+/* 基本リセット & 共通変数 */
+:root {
+  --bg:        #f8f9fa;
+  --text:       #212529;
+  --card-bg:    #ffffff;
+  --card-hover: #e9ecef;
+  --accent:     #6f42c1;
+  --border:     #dee2e6;
+  --shadow:     0 4px 12px rgba(0,0,0,0.08);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg:        #0d1117;
+    --text:       #c9d1d9;
+    --card-bg:    #161b22;
+    --card-hover: #21262d;
+    --accent:     #bb86fc;
+    --border:     #30363d;
+    --shadow:     0 4px 12px rgba(0,0,0,0.6);
+  }
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: system-ui, -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 2rem;
+  transition: background 0.4s, color 0.4s;
+}
+
+main {
+  text-align: center;
+  max-width: 800px;
+  width: 100%;
+}
+
+h1 {
+  font-size: 3.2rem;
+  margin-bottom: 0.8rem;
+  opacity: 0.92;
+}
+
+.time {
+  font-size: 5.5rem;
+  font-weight: 300;
+  margin: 1.2rem 0 2.5rem;
+  letter-spacing: -2px;
+}
+
+.search {
+  margin: 2rem 0 3rem;
+}
+
+input {
+  width: min(90vw, 520px);
+  padding: 1rem 1.8rem;
+  font-size: 1.25rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--card-bg);
+  color: var(--text);
+  outline: none;
+  transition: all 0.2s;
+}
+
+input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 20%, transparent);
+}
+
+.links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.2rem;
+  justify-content: center;
+}
+
+.card {
+  background: var(--card-bg);
+  color: var(--text);
+  padding: 1rem 1.8rem;
+  border-radius: 12px;
+  text-decoration: none;
+  font-size: 1.15rem;
+  font-weight: 500;
+  border: 1px solid var(--border);
+  transition: all 0.22s ease;
+  box-shadow: var(--shadow);
+}
+
+.card:hover,
+.card:focus-visible {
+  transform: translateY(-3px);
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--accent) 30%, transparent);
+}
+
+/* フォーカス表示の改善 */
+a:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 4px;
+}
