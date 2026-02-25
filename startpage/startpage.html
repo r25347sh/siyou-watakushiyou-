@@ -5,14 +5,20 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>My Start Page</title>
   <link rel="stylesheet" href="stylesheet.css">
-  <!-- color-scheme を明示（ブラウザのUIも対応しやすくなる） -->
   <meta name="color-scheme" content="light dark">
 </head>
 <body>
 
+  <header>
+    <button id="theme-toggle" aria-label="テーマ切替">🌙 / ☀️</button>
+  </header>
+
   <main>
+    <div class="days-passed" id="days">+ [計算中...]</div>
     <h1>ようこそ</h1>
     <div class="time" id="clock">00:00:00</div>
+
+    <div id="weather">天気読み込み中...</div>
 
     <form class="search" action="https://www.google.com/search" method="get" target="_blank">
       <input type="text" name="q" placeholder="Google で検索..." autofocus autocomplete="off">
@@ -20,7 +26,7 @@
 
     <div class="links">
       <a href="https://github.com" class="card">GitHub</a>
-      <a href="https://x.com" class="card">X</a>
+      <a href="https://grok.x.ai" class="card">Grok</a>
       <a href="https://youtube.com" class="card">YouTube</a>
       <a href="https://news.google.com" class="card">Google News</a>
       <!-- ここに好きなリンクを追加 -->
