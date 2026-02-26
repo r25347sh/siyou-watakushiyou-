@@ -17,7 +17,7 @@ const startDate = new Date('2026-01-23');
 function updateDaysPassed() {
   const today = new Date();
   const diffTime = today - startDate;
-  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1; // 1日目を起点に
+  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24)); //当日を0日カウント
   document.getElementById('days').textContent = `+ [${diffDays}日目]`;
 }
 updateDaysPassed();
