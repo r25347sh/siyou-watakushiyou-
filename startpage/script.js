@@ -31,8 +31,10 @@ if (savedTheme) {
   html.setAttribute('data-theme', savedTheme);
   toggleBtn.textContent = savedTheme === 'light' ? '☀️' : '🌙';
 } else {
-  // システムデフォルト
+  // システムデフォルトを明示的に設定
   const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const initialTheme = prefersDark ? 'dark' : 'light';
+  html.setAttribute('data-theme', initialTheme);
   toggleBtn.textContent = prefersDark ? '🌙' : '☀️';
 }
 
@@ -43,7 +45,6 @@ toggleBtn.addEventListener('click', () => {
   localStorage.setItem('theme', next);
   toggleBtn.textContent = next === 'light' ? '☀️' : '🌙';
 });
-
 // 天気（Open-Meteo API + Geolocation fallback to Kashiwa）
 async function fetchWeather() {
   const weatherDiv = document.getElementById('weather');
