@@ -1,5 +1,5 @@
 /* 基本リセット & 共通変数 */
-:root {
+[data-theme="light"] {
   --bg:        #f8f9fa;
   --text:       #212529;
   --card-bg:    #ffffff;
@@ -9,17 +9,17 @@
   --shadow:     0 4px 12px rgba(0,0,0,0.08);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg:        #0d1117;
-    --text:       #c9d1d9;
-    --card-bg:    #161b22;
-    --card-hover: #21262d;
-    --accent:     #bb86fc;
-    --border:     #30363d;
-    --shadow:     0 4px 12px rgba(0,0,0,0.6);
-  }
+[data-theme="dark"] {
+  --bg:        #0d1117;
+  --text:       #c9d1d9;
+  --card-bg:    #161b22;
+  --card-hover: #21262d;
+  --accent:     #bb86fc;
+  --border:     #30363d;
+  --shadow:     0 4px 12px rgba(0,0,0,0.6);
 }
+
+/* 他のスタイル（body, mainなど）はそのまま。変数はvar(--bg)などで使用されるので、data-themeで切り替わる */
 
 * {
   margin: 0;
