@@ -10,134 +10,107 @@ document.addEventListener('DOMContentLoaded', () => {
     let timeoutId = null;
     let isActive = false;
 
-    // Wake Lock を要求する関数
+    // Wake Lock 要求（前回と同じ）
     async function requestWakeLock() {
         if (!('wakeLock' in navigator)) {
-            status.textContent = 'Wake Lock 非対応 → 動画フォールバック使用';
+            status.textContent = 'Wake Lock 非対応 → 動画フォールバック';
             startFallbackVideo();
             return;
         }
-
         try {
             wakeLock = await navigator.wakeLock.request('screen');
-            status.textContent = 'Wake Lock 取得成功！画面が起き続けます';
-            console.log('Screen Wake Lock アクティブ');
-
-            // 自動リリースされた場合の再取得（visibilitychange で対応）
-            wakeLock.addEventListener('release', () => {
-                console.log('Wake Lock がリリースされました');
-                wakeLock = null;
-                if (isActive) {
-                    // 再試行（ユーザー操作が必要な場合もある）
-                    status.textContent = 'Wake Lock 失効 → 再取得試行中';
-                    requestWakeLock();
-                }
-            });
+            status.textContent = '画面保持中...';
         } catch (err) {
             console.error('Wake Lock 失敗:', err);
-            status.textContent = 'Wake Lock 失敗 → 動画フォールバック使用';
             startFallbackVideo();
         }
     }
 
-    // Wake Lock リリース
     async function releaseWakeLock() {
         if (wakeLock) {
-            try {
-                await wakeLock.release();
-                wakeLock = null;
-                console.log('Wake Lock リリース');
-            } catch (err) {
-                console.error('リリース失敗:', err);
-            }
+            await wakeLock.release().catch(() => {});
+            wakeLock = null;
         }
         stopFallbackVideo();
     }
 
-    // フォールバック: 隠し無音動画ループ
     function startFallbackVideo() {
-        fallbackVideo.play().catch(e => {
-            console.error('動画再生失敗:', e);
-            status.textContent += '（動画も失敗。スリープ防止が弱まる可能性あり）';
-        });
+        fallbackVideo.play().catch(() => {});
     }
 
     function stopFallbackVideo() {
         fallbackVideo.pause();
-        fallbackVideo.currentTime = 0;
     }
-    
-    // ... 既存の変数宣言部分はそのまま ...
-    
-    // 開始処理（startBtnクリック時）
+
+    // 振動関数（パターン例: 短く複数回 → 起きやすい）
+    function triggerVibration() {
+        if ('vibrate' in navigator) {
+            // パターン: 200ms振動 → 100ms休み → 200ms → 100ms → 400ms長め
+            navigator.vibrate([200, 100, 200, 100, 400]);
+            // 繰り返し（起きるまで数回）
+            setTimeout(() => navigator.vibrate([200, 100, 200, 100, 400]), 1500);
+            setTimeout(() => navigator.vibrate([300, 200, 300]), 3500);
+        }
+    }
+
     startBtn.addEventListener('click', async () => {
         if (isActive) return;
-    
+
         const timeStr = timeInput.value;
-        if (!timeStr) {
-            alert('時間を設定してください');
-            return;
-        }
-    
+        if (!timeStr) return alert('時間を設定してください');
+
         const [h, m] = timeStr.split(':').map(Number);
         const now = new Date();
-        let alarmTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m, 0);
-    
-        if (alarmTime <= now) {
-            alarmTime.setDate(alarmTime.getDate() + 1);
-        }
-    
-        const diffMs = alarmTime - now;
-    
-        // 暗転 + UI隠す
+        let alarm = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m, 0);
+        if (alarm <= now) alarm.setDate(alarm.getDate() + 1);
+
+        const diffMs = alarm - now;
+
         document.body.classList.add('dark');
-        document.body.classList.add('hidden-ui');  // 新規: UI隠しクラス
-        status.textContent = '';  // ステータスも消す
-    
-        // Wake Lock 要求
+        document.body.classList.add('hidden-ui');
+        status.textContent = '';
+
         await requestWakeLock();
-    
+
         isActive = true;
         startBtn.disabled = true;
         cancelBtn.disabled = false;
-        cancelBtn.style.display = 'block';  // キャンセルボタンを表示（最初はCSSでdisplay:noneにしておいてもOK）
-    
-        // タイマー
+        cancelBtn.style.display = 'block';
+
         timeoutId = setTimeout(() => {
-            // 明るく戻す + UI復活
             document.body.classList.remove('dark');
             document.body.classList.remove('hidden-ui');
-            status.textContent = 'アラーム時間になりました！';
+            document.body.classList.add('alarm-active'); // アニメーション起動
+
+            triggerVibration(); // 振動スタート
+
             releaseWakeLock();
-    
+
             isActive = false;
             startBtn.disabled = false;
             cancelBtn.disabled = true;
-            cancelBtn.style.display = 'none';  // または opacity:0 でも
-    
-            alert('おはよう！アラームです');
+            cancelBtn.style.display = 'none';
+
+            // アニメ終了後クラス削除（繰り返さない）
+            setTimeout(() => document.body.classList.remove('alarm-active'), 2000);
+
+            // 起きやすいメッセージ（音なし）
+            status.textContent = 'おはよう！起きてください！';
         }, diffMs);
     });
-    
-    // キャンセル処理（変更なしだが、UI復活を確実に）
+
     cancelBtn.addEventListener('click', () => {
         if (timeoutId) clearTimeout(timeoutId);
-        document.body.classList.remove('dark');
-        document.body.classList.remove('hidden-ui');
+        document.body.classList.remove('dark', 'hidden-ui', 'alarm-active');
         releaseWakeLock();
         status.textContent = 'キャンセルしました';
         isActive = false;
         startBtn.disabled = false;
         cancelBtn.disabled = true;
         cancelBtn.style.display = 'none';
-    
-        // 念のため入力欄にフォーカス戻すなど
-        timeInput.focus();
     });
 
-// ページ読み込み時にキャンセルボタンを隠す（初期状態）
-cancelBtn.style.display = 'none';
-    // ページ非表示時に Wake Lock がリリースされやすいので、復帰時に再取得を試みる
+    // visibilitychange で Wake Lock 再取得
     document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible' && isActive && !wakeLock) {
             requestWakeLock();
