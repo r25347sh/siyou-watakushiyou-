@@ -1,70 +1,104 @@
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
 body {
-    font-family: Arial, sans-serif;
-    background-color: white;
-    color: black;
+    font-family: system-ui, sans-serif;
+    background: #fff;
+    color: #000;
+    min-height: 100vh;
     display: flex;
     justify-content: center;
     align-items: center;
-    height: 100vh;
-    margin: 0;
-    transition: background-color 1s ease, color 1s ease;
+    transition: background 2s ease, color 2s ease;
 }
 
 .container {
     text-align: center;
-    z-index: 2;
+    z-index: 10;
+    padding: 20px;
+    max-width: 90%;
 }
 
-.time-input {
-    margin: 20px 0;
+h1 {
+    margin-bottom: 1rem;
+    font-size: 2.5rem;
+}
+
+p {
+    margin-bottom: 2rem;
+    line-height: 1.5;
+}
+
+.input-area {
+    margin: 2rem 0;
+}
+
+label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-size: 1.2rem;
 }
 
 input[type="time"] {
-    font-size: 1.2em;
-    padding: 5px;
+    font-size: 2rem;
+    padding: 0.5rem 1rem;
+    border: 2px solid #ccc;
+    border-radius: 8px;
 }
 
 button {
-    font-size: 1.2em;
-    padding: 10px 20px;
-    background-color: #007bff;
-    color: white;
+    font-size: 1.3rem;
+    padding: 0.8rem 2rem;
+    margin: 0.5rem;
     border: none;
+    border-radius: 8px;
     cursor: pointer;
-    border-radius: 5px;
+    transition: background 0.3s;
 }
 
-button:hover {
-    background-color: #0056b3;
+#start-btn {
+    background: #007bff;
+    color: white;
+}
+
+#start-btn:hover {
+    background: #0056b3;
+}
+
+#cancel-btn {
+    background: #dc3545;
+    color: white;
+}
+
+#cancel-btn:hover {
+    background: #b02a37;
+}
+
+#status {
+    margin-top: 2rem;
+    font-size: 1.2rem;
+    font-weight: bold;
 }
 
 #overlay {
     position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-color: black;
+    inset: 0;
+    background: #000;
     opacity: 0;
+    transition: opacity 2s ease;
     pointer-events: none;
-    transition: opacity 1s ease;
-    z-index: 1;
+    z-index: 5;
 }
 
-.dark-mode body {
-    background-color: black;
-    color: white;
-}
-
-.dark-mode #overlay {
+.dark #overlay {
     opacity: 1;
+    pointer-events: auto;
 }
 
-.bright-mode body {
-    background-color: white;
-    color: black;
-}
-
-.bright-mode #overlay {
-    opacity: 0;
+.dark body {
+    background: #000;
+    color: #fff;
 }
