@@ -5,7 +5,7 @@
 }
 
 body {
-    font-family: system-ui, sans-serif;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
     background: #fff;
     color: #000;
     min-height: 100vh;
@@ -20,6 +20,7 @@ body {
     z-index: 10;
     padding: 20px;
     max-width: 90%;
+    transition: opacity 1s ease;  /* UIをフェードで隠す/表示 */
 }
 
 h1 {
@@ -47,6 +48,8 @@ input[type="time"] {
     padding: 0.5rem 1rem;
     border: 2px solid #ccc;
     border-radius: 8px;
+    width: 220px;
+    text-align: center;
 }
 
 button {
@@ -69,12 +72,26 @@ button {
 }
 
 #cancel-btn {
-    background: #dc3545;
-    color: white;
+    position: fixed;
+    bottom: 40px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #222;           /* 黒に近いダークグレー */
+    color: #ccc;                /* 薄いグレー文字 */
+    border: 1px solid #444;
+    padding: 12px 30px;
+    font-size: 1.1rem;
+    border-radius: 8px;
+    cursor: pointer;
+    z-index: 20;                /* overlayの上に必ず来る */
+    opacity: 0.7;
+    transition: opacity 0.3s, background 0.3s;
 }
 
-#cancel-btn:hover {
-    background: #b02a37;
+#cancel-btn:hover,
+#cancel-btn:focus {
+    opacity: 1;
+    background: #333;
 }
 
 #status {
@@ -95,63 +112,40 @@ button {
 
 .dark #overlay {
     opacity: 1;
-    pointer-events: auto;
-}
-
-.dark body {
-    background: #000;
-    color: #fff;
-}
-/* 既存のCSSに追加/修正 */
-
-.container {
-    transition: opacity 1s ease;  /* フェードで隠す/表示 */
+    pointer-events: all;        /* 暗転中はクリックをブロック（キャンセルボタン除く） */
 }
 
 .hidden-ui .container {
     opacity: 0;
-    pointer-events: none;  /* クリック不可に */
+    pointer-events: none;       /* UI全体を操作不可に */
 }
 
-#cancel-btn {
-    position: fixed;
-    bottom: 40px;          /* 画面下部に固定 */
-    left: 50%;
-    transform: translateX(-50%);
-    background: #222;      /* 黒に近いダークグレー */
-    color: #ccc;           /* 薄いグレー文字で視認性確保 */
-    border: 1px solid #444;
-    padding: 12px 30px;
-    font-size: 1.1rem;
-    border-radius: 8px;
-    cursor: pointer;
-    z-index: 20;           /* overlayの上に来る */
-    opacity: 0.7;          /* 少し透けさせて目立たせすぎない */
-    transition: opacity 0.3s;
-}
-
-#cancel-btn:hover,
-#cancel-btn:focus {
-    opacity: 1;
-    background: #333;
-}
-
-#overlay {
-    position: fixed;
-    inset: 0;
-    background: #000;
-    opacity: 0;
-    transition: opacity 2s ease;
-    pointer-events: none;  /* 通常はクリック透過 */
-    z-index: 5;
-}
-
-.dark #overlay {
-    opacity: 1;
-    pointer-events: all;   /* 暗転中はクリックをブロック（キャンセルボタン以外） */
-}
-
-/* 暗転中はbodyのテキストも見えなく（念のため） */
+/* 暗転中は本文テキストをほぼ見えなくする（振動と光だけ頼り） */
 .dark body {
-    color: transparent;    /* または #111 などほぼ黒に */
+    color: #111;                /* ほぼ黒に近い */
+}
+
+/* アラーム起動時の起きやすいパルスアニメーション */
+@keyframes pulse-bright {
+    0% {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+    30% {
+        opacity: 1;
+        transform: scale(1.05);
+    }
+    60% {
+        opacity: 0.9;
+        transform: scale(1.02);
+    }
+    100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+.alarm-active {
+    animation: pulse-bright 1.5s ease-out forwards;
+    background: linear-gradient(135deg, #ffffff 0%, #f0f8ff 100%); /* 優しい明るさのグラデーション */
 }
