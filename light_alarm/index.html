@@ -3,22 +3,33 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>光アラーム</title>
+    <title>光アラーム（Wake Lock版）</title>
     <link rel="stylesheet" href="stylesheet.css">
 </head>
 <body>
     <div class="container">
         <h1>光アラーム</h1>
-        <div class="time-input">
-            <label for="alarm-time">アラーム時間を設定:</label>
-            <input type="time" id="alarm-time">
+        <p>時間を設定して「開始」を押すと画面が暗くなり、指定時間に明るくなります。<br>スリープ防止のため画面を強制的に起き続けさせます。</p>
+        
+        <div class="input-area">
+            <label for="alarm-time">アラーム時間:</label>
+            <input type="time" id="alarm-time" required>
         </div>
-        <button id="start-alarm">オンにする</button>
-        <audio id="silent-audio" loop>
-            <source src="silent.mp3" type="audio/mpeg">
-        </audio>
+        
+        <button id="start-btn">開始</button>
+        <button id="cancel-btn" disabled>キャンセル</button>
+        
+        <div id="status">待機中...</div>
     </div>
+
+    <!-- 画面暗転用オーバーレイ -->
     <div id="overlay"></div>
+
+    <!-- Wake Lock フォールバック用隠し動画（blank.mp4 を用意） -->
+    <video id="fallback-video" loop muted playsinline style="display: none;">
+        <source src="blank.mp4" type="video/mp4">
+    </video>
+
     <script src="script.js"></script>
 </body>
 </html>
