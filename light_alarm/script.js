@@ -66,65 +66,77 @@ document.addEventListener('DOMContentLoaded', () => {
         fallbackVideo.pause();
         fallbackVideo.currentTime = 0;
     }
-
-    // 開始処理
+    
+    // ... 既存の変数宣言部分はそのまま ...
+    
+    // 開始処理（startBtnクリック時）
     startBtn.addEventListener('click', async () => {
         if (isActive) return;
-
+    
         const timeStr = timeInput.value;
         if (!timeStr) {
             alert('時間を設定してください');
             return;
         }
-
+    
         const [h, m] = timeStr.split(':').map(Number);
         const now = new Date();
         let alarmTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m, 0);
-
+    
         if (alarmTime <= now) {
             alarmTime.setDate(alarmTime.getDate() + 1);
         }
-
+    
         const diffMs = alarmTime - now;
-
-        // 暗転開始
+    
+        // 暗転 + UI隠す
         document.body.classList.add('dark');
-        status.textContent = '暗転中... アラームまで待機';
-
-        // Wake Lock 要求（ユーザー操作直後なので許可されやすい）
+        document.body.classList.add('hidden-ui');  // 新規: UI隠しクラス
+        status.textContent = '';  // ステータスも消す
+    
+        // Wake Lock 要求
         await requestWakeLock();
-
+    
         isActive = true;
         startBtn.disabled = true;
         cancelBtn.disabled = false;
-
+        cancelBtn.style.display = 'block';  // キャンセルボタンを表示（最初はCSSでdisplay:noneにしておいてもOK）
+    
         // タイマー
         timeoutId = setTimeout(() => {
-            // 明るく戻す
+            // 明るく戻す + UI復活
             document.body.classList.remove('dark');
+            document.body.classList.remove('hidden-ui');
             status.textContent = 'アラーム時間になりました！';
             releaseWakeLock();
-
+    
             isActive = false;
             startBtn.disabled = false;
             cancelBtn.disabled = true;
-
-            // 必要なら音や通知を追加可能
+            cancelBtn.style.display = 'none';  // または opacity:0 でも
+    
             alert('おはよう！アラームです');
         }, diffMs);
     });
-
-    // キャンセル
+    
+    // キャンセル処理（変更なしだが、UI復活を確実に）
     cancelBtn.addEventListener('click', () => {
         if (timeoutId) clearTimeout(timeoutId);
         document.body.classList.remove('dark');
+        document.body.classList.remove('hidden-ui');
         releaseWakeLock();
         status.textContent = 'キャンセルしました';
         isActive = false;
         startBtn.disabled = false;
         cancelBtn.disabled = true;
+        cancelBtn.style.display = 'none';
+    
+        // 念のため入力欄にフォーカス戻すなど
+        timeInput.focus();
     });
 
+// ページ読み込み時にキャンセルボタンを隠す（初期状態）
+cancelBtn.style.display = 'none';
     // ページ非表示時に Wake Lock がリリースされやすいので、復帰時に再取得を試みる
     document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible' && isActive && !wakeLock) {
