@@ -102,3 +102,56 @@ button {
     background: #000;
     color: #fff;
 }
+/* 既存のCSSに追加/修正 */
+
+.container {
+    transition: opacity 1s ease;  /* フェードで隠す/表示 */
+}
+
+.hidden-ui .container {
+    opacity: 0;
+    pointer-events: none;  /* クリック不可に */
+}
+
+#cancel-btn {
+    position: fixed;
+    bottom: 40px;          /* 画面下部に固定 */
+    left: 50%;
+    transform: translateX(-50%);
+    background: #222;      /* 黒に近いダークグレー */
+    color: #ccc;           /* 薄いグレー文字で視認性確保 */
+    border: 1px solid #444;
+    padding: 12px 30px;
+    font-size: 1.1rem;
+    border-radius: 8px;
+    cursor: pointer;
+    z-index: 20;           /* overlayの上に来る */
+    opacity: 0.7;          /* 少し透けさせて目立たせすぎない */
+    transition: opacity 0.3s;
+}
+
+#cancel-btn:hover,
+#cancel-btn:focus {
+    opacity: 1;
+    background: #333;
+}
+
+#overlay {
+    position: fixed;
+    inset: 0;
+    background: #000;
+    opacity: 0;
+    transition: opacity 2s ease;
+    pointer-events: none;  /* 通常はクリック透過 */
+    z-index: 5;
+}
+
+.dark #overlay {
+    opacity: 1;
+    pointer-events: all;   /* 暗転中はクリックをブロック（キャンセルボタン以外） */
+}
+
+/* 暗転中はbodyのテキストも見えなく（念のため） */
+.dark body {
+    color: transparent;    /* または #111 などほぼ黒に */
+}
