@@ -19,11 +19,26 @@
     <div class="time" id="clock">00:00:00</div>
 
     <div id="weather">天気読み込み中...</div>
-
-    <form class="search" action="https://www.google.com/search" method="get" target="_blank">
-      <input type="text" name="q" placeholder="Google で検索..." autofocus autocomplete="off">
-    </form>
-
+    
+    <div class="search">
+      <form id="search-form" method="get" action="https://www.google.com/search" target="_blank">
+        <input 
+          type="search" 
+          name="q" 
+          placeholder="検索..." 
+          list="search-engines" 
+          id="search-input"
+          autocomplete="off"  <!-- ブラウザの自動補完をオフに -->
+        >
+        <datalist id="search-engines">
+          <option value="Google">Google</option>
+          <option value="DuckDuckGo">DuckDuckGo</option>
+          <option value="Yahoo! Japan">Yahoo! Japan</option>
+          <option value="Ask.com">Ask.com</option>
+        </datalist>
+      </form>
+    </div>
+    
     <div class="links">
       <a href="https://github.com" class="card">GitHub</a>
       <a href="https://grok.com" class="card">Grok</a>
