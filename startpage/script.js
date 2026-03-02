@@ -92,4 +92,52 @@ async function fetchWeather() {
   }
 }
 
+// 検索エンジン切り替え
+const searchForm = document.getElementById('search-form');
+const searchInput = document.getElementById('search-input');
+
+// エンジンごとの検索URLマップ
+const engines = {
+  'Google': 'https://www.google.com/search',
+  'DuckDuckGo': 'https://duckduckgo.com/',
+  'Yahoo! Japan': 'https://search.yahoo.co.jp/search',
+  'Ask.com': 'https://www.ask.com/web'
+};
+
+// ページ読み込み時に保存されたエンジンを復元
+const savedEngine = localStorage.getItem('preferredEngine') || 'Google';
+if (savedEngine in engines) {
+  searchForm.action = engines[savedEngine];
+  // 入力欄に初期表示（任意でおしゃれに）
+  searchInput.placeholder = `検索 (${savedEngine})`;
+}
+
+// 入力変更時にエンジン検知 & action変更
+searchInput.addEventListener('input', () => {
+  const value = searchInput.value.trim();
+  
+  // 入力値がエンジン名と完全に一致したら切り替え
+  for (const [name, url] of Object.entries(engines)) {
+    if (value.toLowerCase() === name.toLowerCase()) {
+      searchForm.action = url;
+      localStorage.setItem('preferredEngine', name);
+      // 入力欄をクリアして検索しやすく（任意）
+      // searchInput.value = '';
+      searchInput.placeholder = `検索 (${name})`;
+      break;
+    }
+  }
+});
+
+// フォーム送信前に最終確認（Enter押した時など）
+searchForm.addEventListener('submit', (e) => {
+  const query = searchInput.value.trim();
+  if (!query) {
+    e.preventDefault();
+    return;
+  }
+  
+  // 現在のactionで送信（すでにJSでセット済み）
+});
+
 fetchWeather(); // ページ読み込み時に実行
