@@ -155,3 +155,20 @@ header {
   opacity: 0.9;
   min-height: 1.5em;
 }
+
+input[list] {
+  /* 既存スタイルに追加 */
+  background: var(--card-bg) url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z"/></svg>') no-repeat right 1rem center;
+  background-size: 16px;
+  padding-right: 2.5rem; /* 矢印スペース */
+}
+
+input[list]::-webkit-calendar-picker-indicator,
+input[list]::-webkit-inner-spin-button {
+  display: none; /* 余計なアイコン非表示 */
+}
+
+/* フォーカス時におしゃれに */
+input[list]:focus {
+  background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="%236f42c1" viewBox="0 0 16 16"><path d="M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z"/></svg>');
+}
