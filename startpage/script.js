@@ -48,44 +48,62 @@ toggleBtn.addEventListener('click', () => {
 // 天気（Open-Meteo API + Geolocation fallback to Kashiwa）
 async function fetchWeather() {
   const weatherDiv = document.getElementById('weather');
-  let lat = 35.8683; // 柏市の緯度 (fallback)
-  let lon = 139.9247; // 柏市の経度
+  let lat = 35.8683;
+  let lon = 139.9247;
 
   try {
-    // Geolocationで現在地取得（許可が必要）
     const position = await new Promise((resolve, reject) => {
-      if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 8000 });
-      } else {
-        reject(new Error('Geolocation not supported'));
-      }
+      navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 8000 });
     });
     lat = position.coords.latitude;
     lon = position.coords.longitude;
   } catch (err) {
     console.log('位置情報取得失敗 → 柏市を使用', err);
-    // fallbackは柏市そのまま
   }
 
   try {
-    // Open-Meteo API (無料・キー不要)
-    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weather_code&timezone=Asia%2FTokyo`;
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}` +
+                `&current=temperature_2m,apparent_temperature,relative_humidity_2m,precipitation,weather_code,wind_speed_10m,wind_direction_10m,cloud_cover,pressure_msl` +
+                `&timezone=Asia%2FTokyo`;
+
     const res = await fetch(url);
     const data = await res.json();
 
-    const temp = Math.round(data.current.temperature_2m);
-    const code = data.current.weather_code;
+    const current = data.current;
 
-    // WMOコード簡易マップ（https://open-meteo.com/en/docs 参照）
+    // 風向きを方角に変換するヘルパー
+    function getWindDirection(deg) {
+      const dirs = ['北', '北北東', '北東', '東北東', '東', '東南東', '南東', '南南東',
+                    '南', '南南西', '南西', '西南西', '西', '西北西', '北西', '北北西'];
+      return dirs[Math.round(deg / 22.5) % 16];
+    }
+
+    // WMOコード → 日本語の天気表現（もっと細かくしたいならここを充実）
     let condition = '不明';
+    const code = current.weather_code;
     if (code === 0) condition = '晴れ';
     else if (code <= 3) condition = '晴れ/曇り';
-    else if (code <= 48) condition = '曇り';
-    else if (code <= 67 || code === 80 || code === 81) condition = '雨';
-    else if (code <= 86) condition = '雪/雨雪混じり';
-    else condition = '雷/嵐';
+    else if (code === 45 || code === 48) condition = '霧';
+    else if (code >= 51 && code <= 67) condition = '雨/小雨/みぞれ';
+    else if (code >= 71 && code <= 86) condition = '雪/雨雪混じり';
+    else if (code >= 95) condition = '雷雨/雷を伴う雨';
 
-    weatherDiv.textContent = `現在: ${condition}, ${temp}°C`;
+    // HTMLを詳細に
+    let html = `
+      <div style="font-size:1.4em; font-weight:bold;">${Math.round(current.temperature_2m)}°C</div>
+      <div style="font-size:0.9em; opacity:0.9;">体感 ${Math.round(current.apparent_temperature)}°C</div>
+      <div>${condition}</div>
+      <div style="margin-top:8px; font-size:0.85em; display:grid; grid-template-columns:1fr 1fr; gap:6px;">
+        <div>湿度: ${current.relative_humidity_2m}%</div>
+        <div>風: ${Math.round(current.wind_speed_10m)} m/s (${getWindDirection(current.wind_direction_10m)})</div>
+        <div>雲量: ${current.cloud_cover}%</div>
+        <div>気圧: ${Math.round(current.pressure_msl)} hPa</div>
+        ${current.precipitation > 0 ? `<div>降水: ${current.precipitation.toFixed(1)} mm/h</div>` : ''}
+      </div>
+    `;
+
+    weatherDiv.innerHTML = html;
+
   } catch (err) {
     console.error('天気取得エラー', err);
     weatherDiv.textContent = '天気: 取得できませんでした';
