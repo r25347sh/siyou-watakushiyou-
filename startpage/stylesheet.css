@@ -1,26 +1,24 @@
 /* 基本リセット & 共通変数 */
 [data-theme="light"] {
-  --bg:        #f8f9fa;
-  --text:       #212529;
-  --card-bg:    #ffffff;
+  --bg: #f8f9fa;
+  --text: #212529;
+  --card-bg: #ffffff;
   --card-hover: #e9ecef;
-  --accent:     #6f42c1;
-  --border:     #dee2e6;
-  --shadow:     0 4px 12px rgba(0,0,0,0.08);
+  --accent: #6f42c1;
+  --border: #dee2e6;
+  --shadow: 0 4px 12px rgba(0,0,0,0.08);
 }
-
 [data-theme="dark"] {
-  --bg:        #0d1117;
-  --text:       #c9d1d9;
-  --card-bg:    #161b22;
+  --bg: #0d1117;
+  --text: #c9d1d9;
+  --card-bg: #161b22;
   --card-hover: #21262d;
-  --accent:     #bb86fc;
-  --border:     #30363d;
-  --shadow:     0 4px 12px rgba(0,0,0,0.6);
+  --accent: #bb86fc;
+  --border: #30363d;
+  --shadow: 0 4px 12px rgba(0,0,0,0.6);
 }
 
-/* 他のスタイル（body, mainなど）はそのまま。変数はvar(--bg)などで使用されるので、data-themeで切り替わる */
-
+/* リセット */
 * {
   margin: 0;
   padding: 0;
@@ -112,8 +110,8 @@ a:focus-visible {
   outline: 3px solid var(--accent);
   outline-offset: 4px;
 }
-/* 前回のCSSに追加/修正 */
 
+/* ヘッダー・テーマ切替 */
 header {
   position: absolute;
   top: 1rem;
@@ -136,6 +134,7 @@ header {
   color: white;
 }
 
+/* 経過日数 */
 .days-passed {
   font-family: system-ui, sans-serif;
   font-size: 1.4rem;
@@ -149,26 +148,93 @@ header {
   display: inline-block;
 }
 
-#weather {
-  font-size: 1.1rem;
-  margin: 1.5rem 0 2.5rem;
-  opacity: 0.9;
-  min-height: 1.5em;
-}
-
+/* 検索入力のドロップダウン矢印 */
 input[list] {
-  /* 既存スタイルに追加 */
   background: var(--card-bg) url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z"/></svg>') no-repeat right 1rem center;
   background-size: 16px;
-  padding-right: 2.5rem; /* 矢印スペース */
+  padding-right: 2.5rem;
 }
 
 input[list]::-webkit-calendar-picker-indicator,
 input[list]::-webkit-inner-spin-button {
-  display: none; /* 余計なアイコン非表示 */
+  display: none;
 }
 
-/* フォーカス時におしゃれに */
 input[list]:focus {
   background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="%236f42c1" viewBox="0 0 16 16"><path d="M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z"/></svg>');
+}
+
+/* ── 天気カード専用スタイル ── */
+#weather {
+  margin: 1.5rem 0 2.5rem;
+  min-height: 120px;
+}
+
+.weather-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 1.4rem 1.6rem;
+  box-shadow: var(--shadow);
+  max-width: 380px;
+  margin: 0 auto;
+  transition: all 0.25s ease;
+}
+
+.weather-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 32px color-mix(in srgb, var(--accent) 15%, transparent);
+}
+
+.weather-loading {
+  font-size: 1.05rem;
+  opacity: 0.7;
+  padding: 1rem 0;
+}
+
+.current-temp {
+  font-size: 3.8rem;
+  font-weight: 500;
+  line-height: 1;
+  margin: 0.2rem 0 0.1rem;
+  letter-spacing: -1px;
+}
+
+.current-condition {
+  font-size: 1.35rem;
+  font-weight: 400;
+  margin: 0.3rem 0 0.8rem;
+  opacity: 0.95;
+}
+
+.feels-like {
+  font-size: 1.05rem;
+  opacity: 0.8;
+  margin-bottom: 1.2rem;
+}
+
+.details-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.9rem 1.1rem;
+  font-size: 0.98rem;
+}
+
+.details-grid div {
+  background: color-mix(in srgb, var(--card-bg) 60%, var(--bg));
+  padding: 0.75rem 0.9rem;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+}
+
+/* レスポンシブ調整（狭い画面では1列に） */
+@media (max-width: 480px) {
+  .details-grid {
+    grid-template-columns: 1fr;
+    gap: 0.8rem;
+  }
+  
+  .current-temp {
+    font-size: 3.2rem;
+  }
 }
