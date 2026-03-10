@@ -135,29 +135,35 @@ searchForm.addEventListener('submit', e => {
 
 // 1. 壁紙変更（Unsplash + 保存）
 function setRandomBackground() {
-  const themes = ['japan,night', 'tokyo,neon', 'abstract,minimal', 'nature,forest', 'cyberpunk,city', 'sakura'];
+  const themes = ['japan,night', 'tokyo,neon', 'abstract,minimal', 'nature,forest', 'cyberpunk,city', 'sakura,cherry blossom'];
   const theme = themes[Math.floor(Math.random() * themes.length)];
   const url = `https://source.unsplash.com/random/1920x1080/?${theme}&${Date.now()}`;
 
+  // 強制適用
   document.body.style.backgroundImage = `url(${url})`;
   document.body.style.backgroundSize = 'cover';
   document.body.style.backgroundPosition = 'center';
-  document.body.style.backgroundRepeat = 'no-repeat';
   document.body.style.backgroundAttachment = 'fixed';
-  document.body.style.transition = 'background-image 1.2s ease';
 
   localStorage.setItem('customBg', url);
+  console.log('壁紙変更:', url);  // デバッグ用（コンソールで確認）
 }
 
-const savedBg = localStorage.getItem('customBg');
-if (savedBg) {
-  document.body.style.backgroundImage = `url(${savedBg})`;
+// ロード時復元
+const saved = localStorage.getItem('customBg');
+if (saved) {
+  document.body.style.backgroundImage = `url(${saved})`;
   document.body.style.backgroundSize = 'cover';
   document.body.style.backgroundPosition = 'center';
   document.body.style.backgroundAttachment = 'fixed';
 }
 
-document.getElementById('bg-change')?.addEventListener('click', setRandomBackground);
+const btn = document.getElementById('bg-change');
+if (btn) {
+  btn.addEventListener('click', setRandomBackground);
+} else {
+  console.warn('壁紙ボタンが見つかりません: id="bg-change"');
+}
 
 // 2. 今日の名言
 async function fetchQuote() {
