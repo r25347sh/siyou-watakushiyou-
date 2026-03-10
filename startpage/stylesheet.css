@@ -7,8 +7,8 @@
   --accent: #6f42c1;
   --border: #dee2e6;
   --shadow: 0 4px 12px rgba(0,0,0,0.08);
-  --glass-bg: rgba(255,255,255,0.45);     /* light用: 明るめガラス */
-  --glass-border: rgba(255,255,255,0.6);
+  --glass-bg: rgba(255,255,255,0.55);     /* light: 明るめで可読性高く */
+  --glass-border: rgba(255,255,255,0.65);
 }
 
 [data-theme="dark"] {
@@ -19,8 +19,8 @@
   --accent: #bb86fc;
   --border: #30363d;
   --shadow: 0 4px 12px rgba(0,0,0,0.6);
-  --glass-bg: rgba(30,35,45,0.45);        /* dark用: 少し暗めガラス */
-  --glass-border: rgba(255,255,255,0.12);
+  --glass-bg: rgba(30,35,45,0.65);        /* dark: 少し濃いめでコントラスト確保 */
+  --glass-border: rgba(255,255,255,0.15);
 }
 
 /* リセット */
@@ -32,45 +32,68 @@
 
 body {
   font-family: system-ui, -apple-system, sans-serif;
-  background: var(--bg);
   color: var(--text);
   min-height: 100dvh;
   display: grid;
   place-items: center;
   padding: 2rem;
   transition: background 0.4s, color 0.4s;
-  background-blend-mode: overlay;
-  background-color: rgba(0,0,0,0.18);      /* dark時のベースオーバーレイ（弱め） */
-  background-size: cover;
-  background-position: center;
-  background-attachment: fixed;
-  background-repeat: no-repeat;
+
+  /* 壁紙優先設定（JSでセットされた画像が最優先） */
+  background-size: cover !important;
+  background-position: center !important;
+  background-repeat: no-repeat !important;
+  background-attachment: fixed !important;
+
+  /* デフォルト背景（壁紙なし時） + 薄オーバーレイ */
+  background-color: var(--bg);
+  background-image: none;  /* JSが上書き */
 }
 
-/* lightテーマ時はオーバーレイを明るく薄く */
-[data-theme="light"] body {
-  background-color: rgba(255,255,255,0.12);
+/* 壁紙上の可読性確保のためのオーバーレイ（body全体に薄くかける） */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.15);   /* dark時用 */
+  z-index: -2;
+  pointer-events: none;
 }
 
-/* メインコンテンツ */
-main {
-  text-align: center;
-  max-width: 800px;
-  width: 100%;
-  z-index: 10;  /* 壁紙の上に確実に表示 */
+[data-theme="light"] body::before {
+  background: rgba(255,255,255,0.10);  /* light時: かなり薄く */
 }
 
-h1 {
-  font-size: 3.2rem;
-  margin-bottom: 0.8rem;
-  opacity: 0.92;
+/* メインコンテンツエリア（壁紙が透けつつ文字クッキリ） */
+main, header, .weather-card, .glass-card, .search, .links {
+  position: relative;
+  z-index: 5;
+  background: var(--glass-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--glass-border);
+  border-radius: 20px;
+  padding: 2rem;
+  box-shadow: var(--shadow);
+  max-width: 90%;
+  margin: 1rem auto;
 }
 
-.time {
-  font-size: 5.5rem;
-  font-weight: 300;
-  margin: 1.2rem 0 2.5rem;
-  letter-spacing: -2px;
+/* 文字の可読性強化（影でコントラストUP） */
+h1, .time, .current-temp, .current-condition, .feels-like, #quote, #todo-list li, .card, input, button {
+  text-shadow: 0 1px 4px rgba(0,0,0,0.5);  /* dark/light両対応 */
+}
+
+[data-theme="light"] h1,
+[data-theme="light"] .time,
+[data-theme="light"] .current-temp,
+[data-theme="light"] .current-condition,
+[data-theme="light"] #quote,
+[data-theme="light"] #todo-list li,
+[data-theme="light"] .card,
+[data-theme="light"] input,
+[data-theme="light"] button {
+  text-shadow: 0 1px 3px rgba(0,0,0,0.25);  /* light時は薄めに */
 }
 
 /* 検索エリア */
@@ -84,15 +107,17 @@ input {
   font-size: 1.25rem;
   border: 1px solid var(--border);
   border-radius: 999px;
-  background: var(--card-bg);
+  background: rgba(255,255,255,0.15);
   color: var(--text);
   outline: none;
   transition: all 0.2s;
+  backdrop-filter: blur(8px);
 }
 
 input:focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 20%, transparent);
+  background: rgba(255,255,255,0.25);
 }
 
 /* リンクカード */
@@ -104,49 +129,37 @@ input:focus {
 }
 
 .card {
-  background: var(--card-bg);
+  background: var(--glass-bg);
   color: var(--text);
   padding: 1rem 1.8rem;
   border-radius: 12px;
   text-decoration: none;
   font-size: 1.15rem;
   font-weight: 500;
-  border: 1px solid var(--border);
+  border: 1px solid var(--glass-border);
   transition: all 0.22s ease;
-  box-shadow: var(--shadow);
+  backdrop-filter: blur(10px);
 }
 
 .card:hover,
 .card:focus-visible {
   transform: translateY(-3px);
-  background: var(--accent);
+  background: color-mix(in srgb, var(--accent), var(--glass-bg) 70%);
   color: white;
   border-color: var(--accent);
-  box-shadow: 0 8px 24px color-mix(in srgb, var(--accent) 30%, transparent);
 }
 
-/* フォーカス改善 */
-a:focus-visible {
-  outline: 3px solid var(--accent);
-  outline-offset: 4px;
-}
-
-/* ヘッダー・テーマボタン */
-header {
-  position: absolute;
-  top: 1rem;
-  right: 1rem;
-}
-
+/* テーマトグルボタン */
 #theme-toggle {
-  background: var(--card-bg);
-  border: 1px solid var(--border);
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
   color: var(--text);
   font-size: 1.2rem;
   padding: 0.6rem 1rem;
   border-radius: 50%;
   cursor: pointer;
   transition: all 0.3s;
+  backdrop-filter: blur(10px);
 }
 
 #theme-toggle:hover {
@@ -167,20 +180,17 @@ header {
   display: inline-block;
 }
 
-/* 天気カード */
-#weather {
-  min-height: 120px;
-}
-
+/* 天気カード（既存スタイルをガラス風に統合） */
 .weather-card {
-  background: var(--card-bg);
-  border: 1px solid var(--border);
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
   border-radius: 16px;
   padding: 1.4rem 1.6rem;
   box-shadow: var(--shadow);
   max-width: 380px;
   margin: 0 auto 2rem;
   transition: all 0.25s ease;
+  backdrop-filter: blur(12px);
 }
 
 .weather-card:hover {
@@ -188,9 +198,7 @@ header {
   box-shadow: 0 12px 32px color-mix(in srgb, var(--accent) 15%, transparent);
 }
 
-/* ... 他の天気スタイルはそのまま（current-tempなど） ... */
-
-/* Glassmorphism強化（テーマ対応） */
+/* Glassmorphism共通（壁紙ボタン、ToDoなど） */
 .glass-btn,
 .glass-input,
 .glass-card {
@@ -198,13 +206,11 @@ header {
   border: 1px solid var(--glass-border);
   border-radius: 16px;
   backdrop-filter: blur(16px) saturate(180%);
-  -webkit-backdrop-filter: blur(16px) saturate(180%);
   box-shadow: 0 8px 32px rgba(0,0,0,0.25);
   color: var(--text);
   transition: all 0.35s;
 }
 
-/* 壁紙ボタン */
 .glass-btn {
   padding: 0.9rem 1.8rem;
   font-size: 1.1rem;
@@ -213,11 +219,9 @@ header {
 
 .glass-btn:hover {
   transform: translateY(-4px) scale(1.04);
-  background: color-mix(in srgb, var(--glass-bg), var(--accent) 15%);
-  box-shadow: 0 16px 48px rgba(0,0,0,0.35);
+  background: color-mix(in srgb, var(--accent), var(--glass-bg) 60%);
 }
 
-/* ToDo入力 */
 .glass-input {
   width: 100%;
   padding: 1rem 1.5rem;
@@ -231,14 +235,13 @@ header {
   background: color-mix(in srgb, var(--glass-bg), white 10%);
 }
 
-/* ToDoカード */
 .glass-card {
   padding: 1.6rem;
   margin: 2rem auto;
   max-width: 480px;
 }
 
-/* マウスカーソルエフェクト */
+/* マウスエフェクト */
 #cursor-dot {
   position: fixed;
   width: 36px;
@@ -270,9 +273,10 @@ body:hover #cursor-dot {
   border: 1px solid var(--glass-border);
 }
 
-/* レスポンシブ（狭い画面用） */
+/* レスポンシブ */
 @media (max-width: 600px) {
   .time { font-size: 4rem; }
   h1 { font-size: 2.5rem; }
   input { font-size: 1.1rem; padding: 0.9rem 1.4rem; }
+  main, .weather-card, .glass-card { padding: 1.2rem; }
 }
