@@ -135,21 +135,20 @@ searchForm.addEventListener('submit', e => {
 
 // 1. 壁紙変更（Unsplash + 保存）
 function setRandomBackground() {
-  const themes = ['japan,night', 'tokyo,neon', 'abstract,minimal', 'nature,forest', 'cyberpunk,city', 'sakura,cherry blossom'];
-  const theme = themes[Math.floor(Math.random() * themes.length)];
-  const url = `https://picsum.photos/1920/1080?random=${Date.now()}`;
+  const timestamp = Date.now();
+  const url = `https://picsum.photos/1920/1080?random=${timestamp}`;  // シンプルで確実なランダム画像
 
-  // 強制適用
   document.body.style.backgroundImage = `url(${url})`;
   document.body.style.backgroundSize = 'cover';
   document.body.style.backgroundPosition = 'center';
   document.body.style.backgroundAttachment = 'fixed';
 
   localStorage.setItem('customBg', url);
-  console.log('壁紙変更:', url);  // デバッグ用（コンソールで確認）
+
+  console.log('壁紙セット試行:', url);  // F12コンソールで確認用
 }
 
-// ロード時復元
+// ロード時復元（これもpicsum対応）
 const saved = localStorage.getItem('customBg');
 if (saved) {
   document.body.style.backgroundImage = `url(${saved})`;
@@ -162,9 +161,8 @@ const btn = document.getElementById('bg-change');
 if (btn) {
   btn.addEventListener('click', setRandomBackground);
 } else {
-  console.warn('壁紙ボタンが見つかりません: id="bg-change"');
+  console.warn('ボタンID "bg-change" が見つかりません');
 }
-
 // 2. 今日の名言
 async function fetchQuote() {
   try {
