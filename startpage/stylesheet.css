@@ -28,17 +28,20 @@
 
 body {
   font-family: system-ui, sans-serif;
-  background: var(--bg);
   color: var(--text);
   min-height: 100dvh;
   display: grid;
   place-items: center;
   padding: 1.5rem;
   transition: background 0.5s, color 0.5s;
+
   background-size: cover !important;
   background-position: center !important;
-  background-attachment: fixed !important;
   background-repeat: no-repeat !important;
+  background-attachment: fixed !important;
+
+  background-color: var(--bg);
+  /* background-image: none;  ← これを削除！またはコメントアウト */
 }
 
 /* 壁紙全体にオーバーレイ（可読性最優先） */
