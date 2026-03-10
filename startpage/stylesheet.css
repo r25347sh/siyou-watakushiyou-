@@ -264,3 +264,90 @@ body {
 [data-theme="light"] body {
   background-color: rgba(255,255,255,0.1);
 }
+
+/* 壁紙対応強化 */
+body {
+  background: transparent !important;
+  background-color: rgba(0,0,0,0.25); /* darkテーマ用オーバーレイ */
+}
+[data-theme="light"] body {
+  background-color: rgba(255,255,255,0.18);
+}
+
+/* 壁紙ボタン & ToDoのGlassmorphismデザイン（前回の提案を統合・微調整） */
+.glass-btn, .glass-input, .glass-card {
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.14);
+  border-radius: 16px;
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.25);
+  color: var(--text);
+  transition: all 0.35s;
+}
+
+.glass-btn {
+  padding: 0.9rem 1.8rem;
+  font-size: 1.1rem;
+  cursor: pointer;
+}
+
+.glass-btn:hover {
+  transform: translateY(-4px) scale(1.04);
+  background: rgba(255,255,255,0.14);
+  box-shadow: 0 16px 48px rgba(0,0,0,0.35);
+}
+
+.glass-input {
+  width: 100%;
+  padding: 1rem 1.5rem;
+  margin-bottom: 1rem;
+  font-size: 1.1rem;
+}
+
+.glass-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 25%, transparent);
+  background: rgba(255,255,255,0.14);
+}
+
+.glass-card {
+  padding: 1.6rem;
+  margin: 2rem auto;
+  max-width: 480px;
+}
+
+#todo-list li {
+  background: rgba(255,255,255,0.06);
+  padding: 0.9rem 1.4rem;
+  margin: 0.6rem 0;
+  border-radius: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border: 1px solid rgba(255,255,255,0.1);
+}
+
+#todo-list button {
+  background: rgba(220,53,69,0.7);
+  border: none;
+  color: white;
+  font-weight: bold;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+#todo-list button:hover {
+  background: rgba(200,35,51,0.9);
+}
+
+/* 名言スタイル（自動追加される） */
+#quote {
+  margin-top: 3rem;
+  font-style: italic;
+  opacity: 0.9;
+  max-width: 600px;
+  line-height: 1.6;
+}
