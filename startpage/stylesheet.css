@@ -166,7 +166,7 @@ input[list]:focus {
 
 /* ── 天気カード専用スタイル ── */
 #weather {
- /* margin: 1.5rem 0 2.5rem; */
+  margin: 1.5rem 0 2.5rem;
   min-height: 120px;
 }
 
