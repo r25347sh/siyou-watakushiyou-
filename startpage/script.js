@@ -1,4 +1,4 @@
-// 時計
+// ── 時計 ──
 function updateClock() {
   const now = new Date();
   const timeStr = now.toLocaleTimeString('ja-JP', {
@@ -12,17 +12,16 @@ function updateClock() {
 setInterval(updateClock, 1000);
 updateClock();
 
-// 経過日数（2026/01/23起点）
+// ── 経過日数（2026/01/23起点、当日を0日目） ──
 const startDate = new Date('2026-01-23');
 function updateDaysPassed() {
-  const today = new Date();
-  const diffTime = today - startDate;
-  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24)); //当日を0日カウント
+  const diffTime = new Date() - startDate;
+  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
   document.getElementById('days').textContent = `+ [${diffDays}日目]`;
 }
 updateDaysPassed();
 
-// テーマ切替（システム優先 + 手動上書き）
+// ── テーマ切替（システム優先 + 手動 + 保存） ──
 const toggleBtn = document.getElementById('theme-toggle');
 const html = document.documentElement;
 const savedTheme = localStorage.getItem('theme');
@@ -31,10 +30,9 @@ if (savedTheme) {
   html.setAttribute('data-theme', savedTheme);
   toggleBtn.textContent = savedTheme === 'light' ? '☀️' : '🌙';
 } else {
-  // システムデフォルトを明示的に設定
   const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-  const initialTheme = prefersDark ? 'dark' : 'light';
-  html.setAttribute('data-theme', initialTheme);
+  const initial = prefersDark ? 'dark' : 'light';
+  html.setAttribute('data-theme', initial);
   toggleBtn.textContent = prefersDark ? '🌙' : '☀️';
 }
 
@@ -45,20 +43,18 @@ toggleBtn.addEventListener('click', () => {
   localStorage.setItem('theme', next);
   toggleBtn.textContent = next === 'light' ? '☀️' : '🌙';
 });
-// 天気（Open-Meteo API + Geolocation fallback to Kashiwa）
+
+// ── 天気（Open-Meteo + Geolocation fallback to Kashiwa） ──
 async function fetchWeather() {
   const weatherDiv = document.getElementById('weather');
-  let lat = 35.8683;
-  let lon = 139.9247;
+  let lat = 35.8683, lon = 139.9247;
 
   try {
-    const position = await new Promise((resolve, reject) => {
-      navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 8000 });
-    });
-    lat = position.coords.latitude;
-    lon = position.coords.longitude;
+    const pos = await new Promise((res, rej) => navigator.geolocation.getCurrentPosition(res, rej, { timeout: 8000 }));
+    lat = pos.coords.latitude;
+    lon = pos.coords.longitude;
   } catch (err) {
-    console.log('位置情報取得失敗 → 柏市を使用', err);
+    console.log('位置情報失敗 → 柏市固定', err);
   }
 
   try {
@@ -67,54 +63,45 @@ async function fetchWeather() {
                 `&timezone=Asia%2FTokyo`;
 
     const res = await fetch(url);
+    if (!res.ok) throw new Error('APIレスポンスエラー');
     const data = await res.json();
+    const c = data.current;
 
-    const current = data.current;
-
-    // 風向きを方角に変換するヘルパー
-    function getWindDirection(deg) {
-      const dirs = ['北', '北北東', '北東', '東北東', '東', '東南東', '南東', '南南東',
-                    '南', '南南西', '南西', '西南西', '西', '西北西', '北西', '北北西'];
+    function getWindDir(deg) {
+      const dirs = ['北','北北東','北東','東北東','東','東南東','南東','南南東','南','南南西','南西','西南西','西','西北西','北西','北北西'];
       return dirs[Math.round(deg / 22.5) % 16];
     }
 
-    // WMOコード → 日本語の天気表現（もっと細かくしたいならここを充実）
-    let condition = '不明';
-    const code = current.weather_code;
-    if (code === 0) condition = '晴れ';
-    else if (code <= 3) condition = '晴れ/曇り';
-    else if (code === 45 || code === 48) condition = '霧';
-    else if (code >= 51 && code <= 67) condition = '雨/小雨/みぞれ';
-    else if (code >= 71 && code <= 86) condition = '雪/雨雪混じり';
-    else if (code >= 95) condition = '雷雨/雷を伴う雨';
+    let cond = '不明';
+    const code = c.weather_code;
+    if (code === 0) cond = '晴れ';
+    else if (code <= 3) cond = '晴れ/曇り';
+    else if ([45,48].includes(code)) cond = '霧';
+    else if (code >= 51 && code <= 67) cond = '雨/小雨/みぞれ';
+    else if (code >= 71 && code <= 86) cond = '雪/雨雪混じり';
+    else if (code >= 95) cond = '雷雨';
 
-    // HTMLを詳細に
-    let html = `
-      <div style="font-size:1.4em; font-weight:bold;">${Math.round(current.temperature_2m)}°C</div>
-      <div style="font-size:0.9em; opacity:0.9;">体感 ${Math.round(current.apparent_temperature)}°C</div>
-      <div>${condition}</div>
-      <div style="margin-top:8px; font-size:0.85em; display:grid; grid-template-columns:1fr 1fr; gap:6px;">
-        <div>湿度: ${current.relative_humidity_2m}%</div>
-        <div>風: ${Math.round(current.wind_speed_10m)} m/s (${getWindDirection(current.wind_direction_10m)})</div>
-        <div>雲量: ${current.cloud_cover}%</div>
-        <div>気圧: ${Math.round(current.pressure_msl)} hPa</div>
-        ${current.precipitation > 0 ? `<div>降水: ${current.precipitation.toFixed(1)} mm/h</div>` : ''}
+    weatherDiv.innerHTML = `
+      <div class="current-temp">${Math.round(c.temperature_2m)}°C</div>
+      <div class="current-condition">${cond}</div>
+      <div class="feels-like">体感 ${Math.round(c.apparent_temperature)}°C</div>
+      <div class="details-grid">
+        <div>湿度: ${c.relative_humidity_2m}%</div>
+        <div>風: ${Math.round(c.wind_speed_10m)} m/s (${getWindDir(c.wind_direction_10m)})</div>
+        <div>雲量: ${c.cloud_cover}%</div>
+        <div>気圧: ${Math.round(c.pressure_msl)} hPa</div>
+        ${c.precipitation > 0 ? `<div>降水: ${c.precipitation.toFixed(1)} mm/h</div>` : ''}
       </div>
     `;
-
-    weatherDiv.innerHTML = html;
-
   } catch (err) {
-    console.error('天気取得エラー', err);
-    weatherDiv.textContent = '天気: 取得できませんでした';
+    console.error('天気エラー', err);
+    weatherDiv.innerHTML = '<div class="weather-loading">天気: 取得できませんでした</div>';
   }
 }
 
-// 検索エンジン切り替え
+// ── 検索エンジン切り替え ──
 const searchForm = document.getElementById('search-form');
 const searchInput = document.getElementById('search-input');
-
-// エンジンごとの検索URLマップ
 const engines = {
   'Google': 'https://www.google.com/search',
   'DuckDuckGo': 'https://duckduckgo.com/',
@@ -122,128 +109,118 @@ const engines = {
   'Ask.com': 'https://www.ask.com/web'
 };
 
-// ページ読み込み時に保存されたエンジンを復元
 const savedEngine = localStorage.getItem('preferredEngine') || 'Google';
 if (savedEngine in engines) {
   searchForm.action = engines[savedEngine];
-  // 入力欄に初期表示（任意でおしゃれに）
   searchInput.placeholder = `検索 (${savedEngine})`;
 }
 
-// 入力変更時にエンジン検知 & action変更
 searchInput.addEventListener('input', () => {
-  const value = searchInput.value.trim();
-  
-  // 入力値がエンジン名と完全に一致したら切り替え
+  const val = searchInput.value.trim().toLowerCase();
   for (const [name, url] of Object.entries(engines)) {
-    if (value.toLowerCase() === name.toLowerCase()) {
+    if (val === name.toLowerCase()) {
       searchForm.action = url;
       localStorage.setItem('preferredEngine', name);
-      // 入力欄をクリアして検索しやすく（任意）
-      // searchInput.value = '';
       searchInput.placeholder = `検索 (${name})`;
       break;
     }
   }
 });
 
-// フォーム送信前に最終確認（Enter押した時など）
-searchForm.addEventListener('submit', (e) => {
-  const query = searchInput.value.trim();
-  if (!query) {
-    e.preventDefault();
-    return;
-  }
-  
-  // 現在のactionで送信（すでにJSでセット済み）
+searchForm.addEventListener('submit', e => {
+  if (!searchInput.value.trim()) e.preventDefault();
 });
 
-// ── 新機能（2026/03/10）ここから ──
+// ── 新機能 ──
 
-// 1. ランダム壁紙（Unsplash） + ボタン
+// 1. 壁紙変更（Unsplash + 保存）
 function setRandomBackground() {
-  const themes = ['japan', 'nature', 'cyberpunk', 'minimal', 'tokyo', 'abstract'];
-  const random = themes[Math.floor(Math.random() * themes.length)];
-  const url = `https://source.unsplash.com/random/1920x1080/?${random}&${Date.now()}`;
+  const themes = ['japan,night', 'tokyo,neon', 'abstract,minimal', 'nature,forest', 'cyberpunk,city', 'sakura'];
+  const theme = themes[Math.floor(Math.random() * themes.length)];
+  const url = `https://source.unsplash.com/random/1920x1080/?${theme}&${Date.now()}`;
+
   document.body.style.backgroundImage = `url(${url})`;
+  document.body.style.backgroundSize = 'cover';
+  document.body.style.backgroundPosition = 'center';
+  document.body.style.backgroundRepeat = 'no-repeat';
+  document.body.style.backgroundAttachment = 'fixed';
+  document.body.style.transition = 'background-image 1.2s ease';
+
+  localStorage.setItem('customBg', url);
+}
+
+const savedBg = localStorage.getItem('customBg');
+if (savedBg) {
+  document.body.style.backgroundImage = `url(${savedBg})`;
   document.body.style.backgroundSize = 'cover';
   document.body.style.backgroundPosition = 'center';
   document.body.style.backgroundAttachment = 'fixed';
 }
 
-// 初回適用 + ボタン（HTMLに<button id="bg-change">壁紙変更</button>を追加してね）
 document.getElementById('bg-change')?.addEventListener('click', setRandomBackground);
-setRandomBackground();  // ページ開くたびに変わる（気に入らなければコメントアウト）
 
-// 2. 今日の名言（zenquotes API - 無料・制限ゆるめ）
+// 2. 今日の名言
 async function fetchQuote() {
   try {
     const res = await fetch('https://zenquotes.io/api/random');
-    const data = await res.json();
-    const quoteDiv = document.getElementById('quote') || document.createElement('p');
-    if (!document.getElementById('quote')) {
-      quoteDiv.id = 'quote';
-      quoteDiv.style = 'margin-top: 3rem; font-style: italic; opacity: 0.9; max-width: 600px;';
-      document.querySelector('main')?.appendChild(quoteDiv);
-    }
-    quoteDiv.innerHTML = `「${data[0].q}」<br>— ${data[0].a}`;
-  } catch (err) {
-    console.log('名言取得失敗', err);
-  }
+    const [data] = await res.json();
+    const quoteEl = document.createElement('p');
+    quoteEl.id = 'quote';
+    quoteEl.innerHTML = `「${data.q}」<br>— ${data.a}`;
+    document.querySelector('main')?.appendChild(quoteEl);
+  } catch {}
 }
 fetchQuote();
 
-// 3. 軽めマウス追従エフェクト（CSS変数対応）
-const cursorDot = document.createElement('div');
-cursorDot.id = 'cursor-dot';
-document.body.appendChild(cursorDot);
+// 3. マウス追従エフェクト
+const cursor = document.createElement('div');
+cursor.id = 'cursor-dot';
+document.body.appendChild(cursor);
 
-document.addEventListener('mousemove', (e) => {
-  cursorDot.style.left = e.clientX + 'px';
-  cursorDot.style.top = e.clientY + 'px';
+document.addEventListener('mousemove', e => {
+  cursor.style.left = e.clientX + 'px';
+  cursor.style.top = e.clientY + 'px';
 });
 
-// 4. シンプルToDoリスト（オプション）
+// 4. ToDoリスト
 const todoInput = document.getElementById('todo-input');
 const todoList = document.getElementById('todo-list');
 if (todoInput && todoList) {
-  let todos = JSON.parse(localStorage.getItem('myTodos')) || [];
-  
-  function renderTodos() {
+  let todos = JSON.parse(localStorage.getItem('todos') || '[]');
+
+  function render() {
     todoList.innerHTML = '';
     todos.forEach((text, i) => {
       const li = document.createElement('li');
       li.textContent = text;
-      const delBtn = document.createElement('button');
-      delBtn.textContent = '×';
-      delBtn.onclick = () => {
-        todos.splice(i, 1);
-        localStorage.setItem('myTodos', JSON.stringify(todos));
-        renderTodos();
-      };
-      li.appendChild(delBtn);
-      todoList.appendChild(li);
+      const del = document.createElement('button');
+      del.textContent = '×';
+      del.onclick = () => { todos.splice(i, 1); save(); render(); };
+      li.append(del);
+      todoList.append(li);
     });
   }
 
-  todoInput.addEventListener('keypress', (e) => {
+  function save() { localStorage.setItem('todos', JSON.stringify(todos)); }
+
+  todoInput.addEventListener('keypress', e => {
     if (e.key === 'Enter' && e.target.value.trim()) {
       todos.push(e.target.value.trim());
-      localStorage.setItem('myTodos', JSON.stringify(todos));
       e.target.value = '';
-      renderTodos();
+      save();
+      render();
     }
   });
 
-  renderTodos();
+  render();
 }
 
-// 5. ショートカット例: 'T' でテーマ切り替え
-document.addEventListener('keydown', (e) => {
+// 5. ショートカット: Tキー でテーマ切替
+document.addEventListener('keydown', e => {
   if (e.key.toLowerCase() === 't' && !e.target.matches('input, textarea')) {
     toggleBtn.click();
   }
 });
 
-
-fetchWeather(); // ページ読み込み時に実行
+// ── 初期実行 ──
+fetchWeather();  // 最後に天気（重めなので）
