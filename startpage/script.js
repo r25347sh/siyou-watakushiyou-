@@ -158,4 +158,92 @@ searchForm.addEventListener('submit', (e) => {
   // 現在のactionで送信（すでにJSでセット済み）
 });
 
+// ── 新機能（2026/03/10）ここから ──
+
+// 1. ランダム壁紙（Unsplash） + ボタン
+function setRandomBackground() {
+  const themes = ['japan', 'nature', 'cyberpunk', 'minimal', 'tokyo', 'abstract'];
+  const random = themes[Math.floor(Math.random() * themes.length)];
+  const url = `https://source.unsplash.com/random/1920x1080/?${random}&${Date.now()}`;
+  document.body.style.backgroundImage = `url(${url})`;
+  document.body.style.backgroundSize = 'cover';
+  document.body.style.backgroundPosition = 'center';
+  document.body.style.backgroundAttachment = 'fixed';
+}
+
+// 初回適用 + ボタン（HTMLに<button id="bg-change">壁紙変更</button>を追加してね）
+document.getElementById('bg-change')?.addEventListener('click', setRandomBackground);
+setRandomBackground();  // ページ開くたびに変わる（気に入らなければコメントアウト）
+
+// 2. 今日の名言（zenquotes API - 無料・制限ゆるめ）
+async function fetchQuote() {
+  try {
+    const res = await fetch('https://zenquotes.io/api/random');
+    const data = await res.json();
+    const quoteDiv = document.getElementById('quote') || document.createElement('p');
+    if (!document.getElementById('quote')) {
+      quoteDiv.id = 'quote';
+      quoteDiv.style = 'margin-top: 3rem; font-style: italic; opacity: 0.9; max-width: 600px;';
+      document.querySelector('main')?.appendChild(quoteDiv);
+    }
+    quoteDiv.innerHTML = `「${data[0].q}」<br>— ${data[0].a}`;
+  } catch (err) {
+    console.log('名言取得失敗', err);
+  }
+}
+fetchQuote();
+
+// 3. 軽めマウス追従エフェクト（CSS変数対応）
+const cursorDot = document.createElement('div');
+cursorDot.id = 'cursor-dot';
+document.body.appendChild(cursorDot);
+
+document.addEventListener('mousemove', (e) => {
+  cursorDot.style.left = e.clientX + 'px';
+  cursorDot.style.top = e.clientY + 'px';
+});
+
+// 4. シンプルToDoリスト（オプション）
+const todoInput = document.getElementById('todo-input');
+const todoList = document.getElementById('todo-list');
+if (todoInput && todoList) {
+  let todos = JSON.parse(localStorage.getItem('myTodos')) || [];
+  
+  function renderTodos() {
+    todoList.innerHTML = '';
+    todos.forEach((text, i) => {
+      const li = document.createElement('li');
+      li.textContent = text;
+      const delBtn = document.createElement('button');
+      delBtn.textContent = '×';
+      delBtn.onclick = () => {
+        todos.splice(i, 1);
+        localStorage.setItem('myTodos', JSON.stringify(todos));
+        renderTodos();
+      };
+      li.appendChild(delBtn);
+      todoList.appendChild(li);
+    });
+  }
+
+  todoInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter' && e.target.value.trim()) {
+      todos.push(e.target.value.trim());
+      localStorage.setItem('myTodos', JSON.stringify(todos));
+      e.target.value = '';
+      renderTodos();
+    }
+  });
+
+  renderTodos();
+}
+
+// 5. ショートカット例: 'T' でテーマ切り替え
+document.addEventListener('keydown', (e) => {
+  if (e.key.toLowerCase() === 't' && !e.target.matches('input, textarea')) {
+    toggleBtn.click();
+  }
+});
+
+
 fetchWeather(); // ページ読み込み時に実行
