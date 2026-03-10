@@ -137,7 +137,7 @@ searchForm.addEventListener('submit', e => {
 function setRandomBackground() {
   const themes = ['japan,night', 'tokyo,neon', 'abstract,minimal', 'nature,forest', 'cyberpunk,city', 'sakura,cherry blossom'];
   const theme = themes[Math.floor(Math.random() * themes.length)];
-  const url = `https://source.unsplash.com/random/1920x1080/?${theme}&${Date.now()}`;
+  const url = `https://picsum.photos/1920/1080?random=${Date.now()}`;
 
   // 強制適用
   document.body.style.backgroundImage = `url(${url})`;
