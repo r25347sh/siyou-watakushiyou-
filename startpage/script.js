@@ -13,13 +13,13 @@ setInterval(updateClock, 1000);
 updateClock();
 
 // ── 経過日数（2026/01/23起点、当日を0日目） ──
-const startDate = new Date('2026-01-23');
+/*const startDate = new Date('2026-01-23');
 function updateDaysPassed() {
   const diffTime = new Date() - startDate;
   const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
   document.getElementById('days').textContent = `+ [${diffDays}日目]`;
 }
-updateDaysPassed();
+updateDaysPassed();*/
 
 // ── テーマ切替（システム優先 + 手動 + 保存） ──
 const toggleBtn = document.getElementById('theme-toggle');
