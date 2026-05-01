@@ -175,3 +175,9 @@ h1, .time {
   .time { font-size: 4.2rem; }
   main, .weather-card, .glass-card { padding: 1.5rem; }
 }
+
+/* kakushiメッセージ */
+.kakushi{
+  width:75%;
+  padding:1.2rem;
+}
