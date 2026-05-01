@@ -179,6 +179,8 @@ h1, .time {
 /* kakushiメッセージ */
 .kakushi{
   width:75%;
-  padding:1.2rem;
   margin-bottom:2rem;
+}
+.kakushi_div{
+  padding:5px;
 }
