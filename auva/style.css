@@ -1,0 +1,480 @@
+/* =========================================================
+   AUVA IDE — style.css
+   ダーク基調・エディタ特化 UI
+   ========================================================= */
+
+:root {
+  --bg: #0f1115;
+  --bg-panel: #161a22;
+  --bg-elevated: #1c212c;
+  --bg-input: #0c0e13;
+  --border: #2a3140;
+  --border-soft: #222833;
+  --text: #e6eaf2;
+  --text-dim: #8b93a7;
+  --text-muted: #5c657a;
+  --accent: #6c9eff;
+  --accent-2: #8b5cf6;
+  --success: #34d399;
+  --warn: #fbbf24;
+  --danger: #f87171;
+  --preview-bg: #f4f5f7;
+  --preview-text: #1a1d24;
+  --radius: 10px;
+  --font-ui: "Segoe UI", "Hiragino Sans", "Noto Sans JP", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", "SF Mono", "Consolas", "Menlo", monospace;
+  --shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: var(--font-ui);
+  background: var(--bg);
+  color: var(--text);
+  overflow: hidden;
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+/* ---------- Topbar ---------- */
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  background: linear-gradient(180deg, #1a1f2a 0%, #141820 100%);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.brand {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+
+.brand-mark {
+  color: var(--accent);
+  font-size: 1.1rem;
+}
+
+.brand-name {
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  font-size: 1rem;
+}
+
+.brand-sub {
+  color: var(--text-dim);
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+
+.topbar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.btn {
+  appearance: none;
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.82rem;
+  padding: 6px 11px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, transform 0.1s;
+}
+
+.btn:hover {
+  background: #242b38;
+  border-color: #3a4558;
+}
+
+.btn:active {
+  transform: translateY(1px);
+}
+
+.btn-primary {
+  background: linear-gradient(180deg, #5b8fff, #3d6fe0);
+  border-color: #4a7ae8;
+  color: #fff;
+  font-weight: 600;
+}
+
+.btn-primary:hover {
+  background: linear-gradient(180deg, #6c9eff, #4a7ae8);
+}
+
+.btn-file {
+  display: inline-flex;
+  align-items: center;
+}
+
+.btn-icon {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 1.4rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+}
+
+.btn-icon:hover {
+  background: var(--bg-elevated);
+  color: var(--text);
+}
+
+/* ---------- Workspace ---------- */
+.workspace {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background: var(--bg-panel);
+}
+
+.panel-editor {
+  flex: 1 1 50%;
+  border-right: 1px solid var(--border-soft);
+}
+
+.panel-preview {
+  flex: 1 1 50%;
+}
+
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border-soft);
+  background: var(--bg-elevated);
+  flex-shrink: 0;
+}
+
+.panel-title {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-dim);
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.file-label {
+  text-transform: none;
+  color: var(--accent);
+  font-weight: 500;
+  margin-left: 6px;
+}
+
+.status {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- Editor ---------- */
+.editor-wrap {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  background: var(--bg-input);
+  font-family: var(--font-mono);
+  font-size: 13.5px;
+  line-height: 1.55;
+}
+
+.gutter {
+  flex: 0 0 auto;
+  min-width: 44px;
+  padding: 14px 8px 14px 10px;
+  text-align: right;
+  color: var(--text-muted);
+  user-select: none;
+  border-right: 1px solid var(--border-soft);
+  overflow: hidden;
+  white-space: pre;
+  font-variant-numeric: tabular-nums;
+}
+
+#editor {
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 14px 14px 14px 12px;
+  border: none;
+  outline: none;
+  resize: none;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  line-height: inherit;
+  tab-size: 2;
+  white-space: pre;
+  overflow: auto;
+}
+
+#editor::placeholder {
+  color: var(--text-muted);
+}
+
+/* ---------- Resizer ---------- */
+.resizer {
+  flex: 0 0 5px;
+  cursor: col-resize;
+  background: var(--border-soft);
+  transition: background 0.15s;
+}
+
+.resizer:hover,
+.resizer.active {
+  background: var(--accent);
+}
+
+/* ---------- Tabs & preview ---------- */
+.tabs {
+  display: flex;
+  gap: 2px;
+}
+
+.tab {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 0.8rem;
+  padding: 5px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.tab:hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.tab.active {
+  color: var(--text);
+  background: rgba(108, 158, 255, 0.15);
+}
+
+.tab-body {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+}
+
+.tab-pane {
+  display: none;
+  height: 100%;
+  overflow: auto;
+}
+
+.tab-pane.active {
+  display: block;
+}
+
+.preview-frame {
+  min-height: 100%;
+  padding: 20px 22px;
+  background: var(--preview-bg);
+  color: var(--preview-text);
+  font-family: var(--font-ui);
+  line-height: 1.65;
+}
+
+/* プレビュー内の基本スタイル（reitansai 風カード） */
+.preview-frame .card {
+  background: #fff;
+  border-radius: 12px;
+  padding: 18px 20px;
+  margin-bottom: 14px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+  border: 1px solid #e5e7eb;
+}
+
+.preview-frame h1,
+.preview-frame h2,
+.preview-frame h3 {
+  margin: 0 0 10px;
+  line-height: 1.3;
+}
+
+.preview-frame h2 {
+  font-size: 1.15rem;
+  color: #1e293b;
+}
+
+.preview-frame p {
+  margin: 0 0 8px;
+  color: #334155;
+}
+
+.preview-frame p:last-child {
+  margin-bottom: 0;
+}
+
+.code-out {
+  margin: 0;
+  padding: 14px 16px;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: #c8d0e0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.code-out.log {
+  color: #a8b0c4;
+}
+
+.code-out .err {
+  color: var(--danger);
+}
+
+.code-out .ok {
+  color: var(--success);
+}
+
+.code-out .info {
+  color: var(--accent);
+}
+
+/* ---------- Modal ---------- */
+.modal[hidden] {
+  display: none;
+}
+
+.modal {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(3px);
+}
+
+.modal-card {
+  position: relative;
+  width: min(640px, 100%);
+  max-height: min(80vh, 720px);
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.modal-header h2 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.modal-body {
+  padding: 16px 18px 22px;
+  overflow: auto;
+}
+
+.modal-body h3 {
+  margin: 16px 0 8px;
+  font-size: 0.9rem;
+  color: var(--accent);
+}
+
+.modal-body h3:first-child {
+  margin-top: 0;
+}
+
+.ref {
+  margin: 0;
+  padding: 10px 12px;
+  background: var(--bg-input);
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.55;
+  color: #c5cddc;
+  overflow-x: auto;
+}
+
+.ref-list {
+  margin: 0;
+  padding-left: 1.2em;
+  color: var(--text-dim);
+  font-size: 0.88rem;
+  line-height: 1.6;
+}
+
+/* ---------- Responsive ---------- */
+@media (max-width: 800px) {
+  .workspace {
+    flex-direction: column;
+  }
+
+  .panel-editor,
+  .panel-preview {
+    flex: 1 1 50%;
+  }
+
+  .resizer {
+    flex: 0 0 5px;
+    cursor: row-resize;
+  }
+
+  .brand-sub {
+    display: none;
+  }
+}
