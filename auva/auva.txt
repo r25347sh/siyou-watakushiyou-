@@ -1,0 +1,1254 @@
+/**
+ * auva.js - Custom .auva markup language loader & renderer
+ * Designed for client-side use (GitHub Pages compatible)
+ *
+ * Features implemented:
+ * - <section data-src="..."> loading with loading-state preservation
+ * - <!-- comments --> stripping (including inline)
+ * - <link rel="autovalue" href="..."> external variable inheritance
+ *   (ignores missing files / wrong rel)
+ * - <value> ... </value> variable definitions
+ *   (string " / ', number, boolean, list [...], nested lists)
+ * - Lists are 1-indexed
+ * - (( content ))(attrs) → <div attrs> ... </div>
+ * - [[tag:"content"]] / [tag:"content"] → <tag>content</tag>
+ *   ★ "..." / '...' 内は常に生文字列（auva記法として解釈しない）
+ * - ネストタグ: [ul: [li:"a"] [li:"b"] ] のように子要素を内容に書ける
+ * - Optional (attrs) after tag, attrs may be literal or {var}
+ * - [img](attrs) etc. for empty/self-closing style tags
+ * - {var} and {list[index]} interpolation
+ * - // repetition[i = start,end,step]{ ... } with // i+=1 support
+ * - Basic arithmetic (+ - * / %) and logical operators inside scripts
+ * - if / elif / else / while (basic support)
+ */
+
+(function () {
+  "use strict";
+
+  /* ------------------------------------------------------------------ */
+  /*  Utility helpers                                                   */
+  /* ------------------------------------------------------------------ */
+
+  function stripComments(text) {
+    // Remove <!-- ... --> including multiline and inline
+    return text.replace(/<!--[\s\S]*?-->/g, "");
+  }
+
+  function unescapeString(s) {
+    // Simple unescape for common sequences
+    return s
+      .replace(/\\n/g, "\n")
+      .replace(/\\t/g, "\t")
+      .replace(/\\"/g, '"')
+      .replace(/\\'/g, "'")
+      .replace(/\\\\/g, "\\");
+  }
+
+  /**
+   * Escape HTML special characters so that string content is displayed
+   * as literal text via innerHTML (not interpreted as tags).
+   * Applied only to quoted-string content / plain text — never to
+   * already-generated nested HTML (isRawHtml).
+   */
+  function escapeHtml(s) {
+    return String(s)
+      .replace(/&/g, "&")
+      .replace(/</g, "<")
+      .replace(/>/g, ">")
+      .replace(/"/g, """)
+      .replace(/'/g, "&#39;");
+  }
+
+  function isTruthy(v) {
+    if (v === null || v === undefined) return false;
+    if (typeof v === "boolean") return v;
+    if (typeof v === "number") return v !== 0;
+    if (typeof v === "string") return v.length > 0 && v.toLowerCase() !== "false";
+    if (Array.isArray(v)) return v.length > 0;
+    return !!v;
+  }
+
+  /* ------------------------------------------------------------------ */
+  /*  Value / expression evaluator                                      */
+  /* ------------------------------------------------------------------ */
+
+  /**
+   * Evaluate a simple expression against the current variables map.
+   * Supports:
+   *   - numbers, strings, booleans
+   *   - variable names
+   *   - list access name[index] (1-based)
+   *   - len[name]
+   *   - arithmetic + - * / %
+   *   - comparison == != < > <= >=
+   *   - logical && || !
+   *   - parentheses
+   */
+  function evaluateExpression(expr, vars) {
+    expr = String(expr).trim();
+    if (!expr) return undefined;
+
+    // Tokenize
+    const tokens = [];
+    let i = 0;
+    while (i < expr.length) {
+      if (/\s/.test(expr[i])) {
+        i++;
+        continue;
+      }
+      // string literal
+      if (expr[i] === '"' || expr[i] === "'") {
+        const q = expr[i];
+        let j = i + 1;
+        let s = "";
+        while (j < expr.length && expr[j] !== q) {
+          if (expr[j] === "\\") {
+            s += expr[j + 1] || "";
+            j += 2;
+          } else {
+            s += expr[j];
+            j++;
+          }
+        }
+        tokens.push({ type: "string", value: s });
+        i = j + 1;
+        continue;
+      }
+      // number
+      if (/[0-9.]/.test(expr[i])) {
+        let j = i;
+        while (j < expr.length && /[0-9.]/.test(expr[j])) j++;
+        tokens.push({ type: "number", value: parseFloat(expr.slice(i, j)) });
+        i = j;
+        continue;
+      }
+      // identifier or keyword
+      if (/[a-zA-Z_ぁ-んァ-ン一-龯]/.test(expr[i])) {
+        let j = i;
+        while (j < expr.length && /[a-zA-Z0-9_ぁ-んァ-ン一-龯]/.test(expr[j])) j++;
+        const id = expr.slice(i, j);
+        if (id === "true") tokens.push({ type: "boolean", value: true });
+        else if (id === "false") tokens.push({ type: "boolean", value: false });
+        else if (id === "len") tokens.push({ type: "len" });
+        else tokens.push({ type: "id", value: id });
+        i = j;
+        continue;
+      }
+      // operators / punctuation
+      const two = expr.slice(i, i + 2);
+      if (["==", "!=", "<=", ">=", "&&", "||", "+="].includes(two)) {
+        tokens.push({ type: "op", value: two });
+        i += 2;
+        continue;
+      }
+      if ("+-*/%<>=!()[],".includes(expr[i])) {
+        tokens.push({ type: "op", value: expr[i] });
+        i++;
+        continue;
+      }
+      // unknown char – skip
+      i++;
+    }
+
+    let pos = 0;
+    function peek() {
+      return tokens[pos];
+    }
+    function consume() {
+      return tokens[pos++];
+    }
+
+    function parsePrimary() {
+      const t = peek();
+      if (!t) return undefined;
+
+      if (t.type === "number" || t.type === "string" || t.type === "boolean") {
+        consume();
+        return t.value;
+      }
+
+      if (t.type === "len") {
+        consume(); // len
+        if (peek() && peek().value === "[") {
+          consume();
+          const nameTok = consume();
+          if (peek() && peek().value === "]") consume();
+          const arr = vars[nameTok.value];
+          return Array.isArray(arr) ? arr.length : 0;
+        }
+        return 0;
+      }
+
+      if (t.type === "id") {
+        consume();
+        let val = vars[t.value];
+        // list access name[index]
+        if (peek() && peek().value === "[") {
+          consume();
+          const idxExpr = parseExpr();
+          if (peek() && peek().value === "]") consume();
+          const idx = Math.floor(Number(idxExpr));
+          if (Array.isArray(val) && idx >= 1 && idx <= val.length) {
+            val = val[idx - 1]; // 1-based
+          } else {
+            val = undefined;
+          }
+        }
+        return val;
+      }
+
+      if (t.value === "(") {
+        consume();
+        const v = parseExpr();
+        if (peek() && peek().value === ")") consume();
+        return v;
+      }
+
+      if (t.value === "!") {
+        consume();
+        return !isTruthy(parsePrimary());
+      }
+
+      if (t.value === "-") {
+        consume();
+        return -Number(parsePrimary());
+      }
+
+      return undefined;
+    }
+
+    function parseMul() {
+      let left = parsePrimary();
+      while (peek() && ["*", "/", "%"].includes(peek().value)) {
+        const op = consume().value;
+        const right = parsePrimary();
+        if (op === "*") left = Number(left) * Number(right);
+        else if (op === "/") left = Number(left) / Number(right);
+        else left = Number(left) % Number(right);
+      }
+      return left;
+    }
+
+    function parseAdd() {
+      let left = parseMul();
+      while (peek() && ["+", "-"].includes(peek().value)) {
+        const op = consume().value;
+        const right = parseMul();
+        if (op === "+") {
+          // string concat if either is string
+          if (typeof left === "string" || typeof right === "string") {
+            left = String(left) + String(right);
+          } else {
+            left = Number(left) + Number(right);
+          }
+        } else {
+          left = Number(left) - Number(right);
+        }
+      }
+      return left;
+    }
+
+    function parseCmp() {
+      let left = parseAdd();
+      while (peek() && ["==", "!=", "<", ">", "<=", ">="].includes(peek().value)) {
+        const op = consume().value;
+        const right = parseAdd();
+        if (op === "==") left = left == right;
+        else if (op === "!=") left = left != right;
+        else if (op === "<") left = Number(left) < Number(right);
+        else if (op === ">") left = Number(left) > Number(right);
+        else if (op === "<=") left = Number(left) <= Number(right);
+        else if (op === ">=") left = Number(left) >= Number(right);
+      }
+      return left;
+    }
+
+    function parseAnd() {
+      let left = parseCmp();
+      while (peek() && peek().value === "&&") {
+        consume();
+        const right = parseCmp();
+        left = isTruthy(left) && isTruthy(right);
+      }
+      return left;
+    }
+
+    function parseOr() {
+      let left = parseAnd();
+      while (peek() && peek().value === "||") {
+        consume();
+        const right = parseAnd();
+        left = isTruthy(left) || isTruthy(right);
+      }
+      return left;
+    }
+
+    function parseExpr() {
+      return parseOr();
+    }
+
+    try {
+      return parseExpr();
+    } catch (e) {
+      console.warn("Expression evaluation error:", expr, e);
+      return undefined;
+    }
+  }
+
+  /**
+   * Interpolate {expr} inside a string using current vars.
+   */
+  function interpolate(str, vars) {
+    if (typeof str !== "string") return str;
+    return str.replace(/\{([^}]+)\}/g, (_, expr) => {
+      const v = evaluateExpression(expr.trim(), vars);
+      return v === undefined || v === null ? "" : String(v);
+    });
+  }
+
+  /* ------------------------------------------------------------------ */
+  /*  Variable parser (<value> blocks)                                  */
+  /* ------------------------------------------------------------------ */
+
+  function parseValueBlock(content, vars) {
+    // content already without surrounding <value> tags
+    // Support multiple assignments, lists, strings with " or '
+    // We walk character by character for robustness
+
+    let i = 0;
+    const len = content.length;
+
+    function skipWs() {
+      while (i < len && /\s/.test(content[i])) i++;
+    }
+
+    function parseString() {
+      const q = content[i];
+      if (q !== '"' && q !== "'") return null;
+      i++;
+      let s = "";
+      while (i < len && content[i] !== q) {
+        if (content[i] === "\\") {
+          i++;
+          if (i < len) {
+            s += content[i];
+            i++;
+          }
+        } else {
+          s += content[i];
+          i++;
+        }
+      }
+      if (i < len) i++; // closing quote
+      return s;
+    }
+
+    function parseList() {
+      if (content[i] !== "[") return null;
+      i++; // [
+      const arr = [];
+      skipWs();
+      while (i < len && content[i] !== "]") {
+        skipWs();
+        if (content[i] === "]") break;
+        let val;
+        if (content[i] === '"' || content[i] === "'") {
+          val = parseString();
+        } else if (content[i] === "[") {
+          val = parseList(); // nested list
+        } else if (content[i] === "{") {
+          // simple dict support {key:val, ...} – treat as object
+          val = parseDict();
+        } else {
+          // number / boolean / identifier
+          let j = i;
+          while (j < len && !/[,\]]/.test(content[j]) && !/\s/.test(content[j])) j++;
+          const raw = content.slice(i, j).trim();
+          i = j;
+          if (raw === "true") val = true;
+          else if (raw === "false") val = false;
+          else if (/^-?\d+(\.\d+)?$/.test(raw)) val = Number(raw);
+          else val = raw;
+        }
+        arr.push(val);
+        skipWs();
+        if (content[i] === ",") {
+          i++;
+          skipWs();
+        }
+      }
+      if (i < len && content[i] === "]") i++;
+      return arr;
+    }
+
+    function parseDict() {
+      if (content[i] !== "{") return null;
+      i++;
+      const obj = {};
+      skipWs();
+      while (i < len && content[i] !== "}") {
+        skipWs();
+        // key
+        let key;
+        if (content[i] === '"' || content[i] === "'") key = parseString();
+        else {
+          let j = i;
+          while (j < len && /[a-zA-Z0-9_]/.test(content[j])) j++;
+          key = content.slice(i, j);
+          i = j;
+        }
+        skipWs();
+        if (content[i] === ":") i++;
+        skipWs();
+        let val;
+        if (content[i] === '"' || content[i] === "'") val = parseString();
+        else if (content[i] === "[") val = parseList();
+        else if (content[i] === "{") val = parseDict();
+        else {
+          let j = i;
+          while (j < len && !/[,}]/.test(content[j]) && !/\s/.test(content[j])) j++;
+          const raw = content.slice(i, j).trim();
+          i = j;
+          if (raw === "true") val = true;
+          else if (raw === "false") val = false;
+          else if (/^-?\d+(\.\d+)?$/.test(raw)) val = Number(raw);
+          else val = raw;
+        }
+        obj[key] = val;
+        skipWs();
+        if (content[i] === ",") i++;
+      }
+      if (i < len && content[i] === "}") i++;
+      return obj;
+    }
+
+    while (i < len) {
+      skipWs();
+      if (i >= len) break;
+
+      // identifier
+      let j = i;
+      while (j < len && /[a-zA-Z0-9_ぁ-んァ-ン一-龯]/.test(content[j])) j++;
+      if (j === i) {
+        i++;
+        continue;
+      }
+      const name = content.slice(i, j);
+      i = j;
+      skipWs();
+      if (content[i] !== "=") continue;
+      i++; // =
+      skipWs();
+
+      let value;
+      if (content[i] === '"' || content[i] === "'") {
+        value = parseString();
+      } else if (content[i] === "[") {
+        value = parseList();
+      } else if (content[i] === "{") {
+        value = parseDict();
+      } else {
+        // number / boolean / bare word until whitespace or end
+        let k = i;
+        while (k < len && !/\s/.test(content[k]) && content[k] !== "<") k++;
+        const raw = content.slice(i, k).trim();
+        i = k;
+        if (raw === "true") value = true;
+        else if (raw === "false") value = false;
+        else if (/^-?\d+(\.\d+)?$/.test(raw)) value = Number(raw);
+        else value = raw;
+      }
+      vars[name] = value;
+    }
+  }
+
+  /* ------------------------------------------------------------------ */
+  /*  Link processing (external variable inheritance)                   */
+  /* ------------------------------------------------------------------ */
+
+  async function processLinks(rawText, baseUrl, vars) {
+    // Extract all <link ...> tags
+    const linkRe = /<link\s+([^>]*?)\s*\/?>/gi;
+    let match;
+    const promises = [];
+
+    while ((match = linkRe.exec(rawText)) !== null) {
+      const attrsStr = match[1];
+      const relMatch = attrsStr.match(/rel\s*=\s*["']([^"']+)["']/i);
+      const hrefMatch = attrsStr.match(/href\s*=\s*["']([^"']+)["']/i);
+      if (!relMatch || !hrefMatch) continue;
+      const rel = relMatch[1].trim().toLowerCase();
+      if (rel !== "autovalue") continue; // ignore wrong rel
+
+      const href = hrefMatch[1].trim();
+      // Resolve relative to current auva location
+      let url;
+      try {
+        url = new URL(href, baseUrl).href;
+      } catch (e) {
+        console.warn("Invalid link href:", href);
+        continue;
+      }
+
+      promises.push(
+        fetch(url)
+          .then((r) => {
+            if (!r.ok) throw new Error("not found");
+            return r.text();
+          })
+          .then((text) => {
+            const cleaned = stripComments(text);
+            // Only extract <value> blocks from external file
+            const valueRe = /<value>([\s\S]*?)<\/value>/gi;
+            let vm;
+            while ((vm = valueRe.exec(cleaned)) !== null) {
+              parseValueBlock(vm[1], vars);
+            }
+          })
+          .catch(() => {
+            // silently ignore missing / failed files as required
+          })
+      );
+    }
+    await Promise.all(promises);
+  }
+
+  /* ------------------------------------------------------------------ */
+  /*  Content generator (tags, loops, interpolation)                    */
+  /* ------------------------------------------------------------------ */
+
+  /**
+   * Parse attribute string that may contain {var} or be a plain string.
+   * Returns the final attribute string ready to put inside a tag.
+   */
+  function resolveAttrs(attrRaw, vars) {
+    if (!attrRaw) return "";
+    let s = attrRaw.trim();
+    // If whole thing is a single {var}, expand it
+    const singleVar = s.match(/^\{([^}]+)\}$/);
+    if (singleVar) {
+      const v = evaluateExpression(singleVar[1].trim(), vars);
+      return v == null ? "" : String(v).trim();
+    }
+    // Otherwise interpolate any { } inside
+    return interpolate(s, vars).trim();
+  }
+
+  /**
+   * Generate HTML for a single tag expression.
+   *
+   * @param {string} tagName
+   * @param {string|null} content - string content or pre-rendered HTML
+   * @param {string} attrs - raw attribute string
+   * @param {object} vars
+   * @param {boolean} isRawHtml - true if content is already processed HTML
+   *                              (nested tags); false if plain string
+   */
+  function generateTag(tagName, content, attrs, vars, isRawHtml) {
+    const resolvedAttrs = resolveAttrs(attrs || "", vars);
+    const attrPart = resolvedAttrs ? " " + resolvedAttrs : "";
+
+    const voidTags = new Set([
+      "img", "br", "hr", "input", "meta", "link", "area", "base",
+      "col", "embed", "source", "track", "wbr"
+    ]);
+
+    if (voidTags.has(tagName.toLowerCase()) || content === null || content === undefined) {
+      return `<${tagName}${attrPart}>`;
+    }
+
+    // 文字列コンテンツ → 変数補間のあと HTML エスケープ
+    //   （<>&"' を実体参照にし、ブラウザがタグとして解釈しないようにする）
+    // ネストHTMLコンテンツ → そのまま使用（既に processContent 済み）
+    const body = isRawHtml
+      ? (content || "")
+      : escapeHtml(interpolate(content || "", vars));
+
+    return `<${tagName}${attrPart}>${body}</${tagName}>`;
+  }
+
+  /**
+   * Main content processor.
+   * Handles:
+   *   - (( ... ))(attrs)  →  <div attrs>...</div>
+   *   - [[tag:"..."]] / [tag:"..."]  → 文字列コンテンツ（""内は生文字列）
+   *   - [tag: ネストしたタグ群 ]  → 子要素を再帰パース
+   *   - // repetition / if / while / 代入
+   *   - plain text (with interpolation)
+   */
+  function processContent(text, vars) {
+    let result = "";
+    let i = 0;
+    const len = text.length;
+
+    function skipWhitespace() {
+      while (i < len && /\s/.test(text[i])) i++;
+    }
+
+    /**
+     * Parse a balanced block starting after an opening '{'.
+     * Returns the inner content and advances i past the closing '}'.
+     * Respects string literals so } inside "..." does not close the block.
+     */
+    function parseBalancedBlock() {
+      if (text[i] !== "{") return "";
+      i++; // skip {
+      let depth = 1;
+      const start = i;
+      while (i < len && depth > 0) {
+        // skip string literals
+        if (text[i] === '"' || text[i] === "'") {
+          const q = text[i];
+          i++;
+          while (i < len && text[i] !== q) {
+            if (text[i] === "\\") i += 2;
+            else i++;
+          }
+          if (i < len) i++; // closing quote
+          continue;
+        }
+        if (text[i] === "{") depth++;
+        else if (text[i] === "}") depth--;
+        if (depth > 0) i++;
+      }
+      const inner = text.slice(start, i);
+      if (i < len && text[i] === "}") i++;
+      return inner;
+    }
+
+    /**
+     * Parse attribute parentheses that immediately follow a tag or )).
+     * Returns the raw attribute string (may be empty).
+     * Respects string literals inside attrs.
+     */
+    function parseOptionalAttrs() {
+      skipWhitespace();
+      if (text[i] !== "(") return "";
+      i++; // (
+      let depth = 1;
+      const start = i;
+      while (i < len && depth > 0) {
+        if (text[i] === '"' || text[i] === "'") {
+          const q = text[i];
+          i++;
+          while (i < len && text[i] !== q) {
+            if (text[i] === "\\") i += 2;
+            else i++;
+          }
+          if (i < len) i++;
+          continue;
+        }
+        if (text[i] === "(") depth++;
+        else if (text[i] === ")") depth--;
+        if (depth > 0) i++;
+      }
+      const attrs = text.slice(start, i);
+      if (i < len && text[i] === ")") i++;
+      return attrs;
+    }
+
+    /**
+     * Consume closing bracket(s) for a tag.
+     * isDouble → prefer ]] but accept single ]
+     */
+    function consumeClosingBracket(isDouble) {
+      skipWhitespace();
+      if (isDouble) {
+        if (text[i] === "]" && text[i + 1] === "]") {
+          i += 2;
+          return true;
+        }
+        if (text[i] === "]") {
+          i += 1;
+          return true;
+        }
+      } else {
+        if (text[i] === "]") {
+          i += 1;
+          return true;
+        }
+      }
+      return false;
+    }
+
+    /**
+     * Parse a quoted string starting at text[i] (must be " or ').
+     * Returns the raw string value (escapes resolved).
+     * Advances i past the closing quote.
+     *
+     * ★ 最優先ルール: "..." / '...' の中身は一切 auva 記法として解釈しない。
+     *    コード例・HTML断片・[[tag:...]] などをそのまま文字列として保持する。
+     */
+    function parseQuotedString() {
+      const q = text[i];
+      if (q !== '"' && q !== "'") return null;
+      i++; // opening quote
+      let s = "";
+      while (i < len && text[i] !== q) {
+        if (text[i] === "\\") {
+          i++;
+          if (i < len) {
+            // 一般的なエスケープ
+            const c = text[i];
+            if (c === "n") s += "\n";
+            else if (c === "t") s += "\t";
+            else if (c === "r") s += "\r";
+            else s += c; // \" \' \\ などはその文字自体
+            i++;
+          }
+        } else {
+          s += text[i];
+          i++;
+        }
+      }
+      if (i < len) i++; // closing quote
+      return s;
+    }
+
+    /**
+     * Parse nested (non-quoted) tag content until the matching closing ].
+     * Tracks bracket depth while respecting string literals so that
+     * ] inside "..." does not close the tag.
+     * Returns the raw inner text; caller should processContent() it.
+     */
+    function parseNestedContent() {
+      const start = i;
+      let depth = 0; // number of unmatched [ we are inside (relative)
+
+      while (i < len) {
+        // ★ 文字列リテラル内は完全スキップ（最優先）
+        if (text[i] === '"' || text[i] === "'") {
+          const q = text[i];
+          i++;
+          while (i < len && text[i] !== q) {
+            if (text[i] === "\\") i += 2;
+            else i++;
+          }
+          if (i < len) i++; // closing quote
+          continue;
+        }
+
+        if (text[i] === "[") {
+          depth++;
+          i++;
+          continue;
+        }
+
+        if (text[i] === "]") {
+          if (depth === 0) {
+            // This ] closes our tag
+            break;
+          }
+          depth--;
+          i++;
+          continue;
+        }
+
+        i++;
+      }
+
+      return text.slice(start, i);
+    }
+
+    /**
+     * Parse a tag:
+     *   [[name:"string"]]           → string content (literal)
+     *   [name:"string"]             → string content (literal)
+     *   [name: nested tags here ]   → nested content (recursive)
+     *   [name]                      → empty / void
+     * Optional (attrs) after closing bracket.
+     */
+    function parseTag() {
+      // current should be '['
+      const isDouble = text[i] === "[" && text[i + 1] === "[";
+      if (isDouble) i += 2;
+      else if (text[i] === "[") i += 1;
+      else return null;
+
+      // tag name
+      let j = i;
+      while (j < len && /[a-zA-Z0-9_-]/.test(text[j])) j++;
+      if (j === i) {
+        // not a valid tag name – treat as plain text
+        // rewind is handled by caller returning null only at start;
+        // here we already consumed '[' so produce literal
+        return isDouble ? "[[" : "[";
+      }
+      const tagName = text.slice(i, j);
+      i = j;
+
+      let content = null;
+      let isRawHtml = false;
+
+      skipWhitespace();
+
+      if (text[i] === ":") {
+        i++; // :
+        skipWhitespace();
+
+        if (text[i] === '"' || text[i] === "'") {
+          // ──────────────────────────────────────────────
+          // 文字列コンテンツ（最優先）
+          // "..." / '...' の中は一切パースしない
+          // ──────────────────────────────────────────────
+          content = parseQuotedString();
+          isRawHtml = false;
+          consumeClosingBracket(isDouble);
+        } else {
+          // ──────────────────────────────────────────────
+          // ネストコンテンツ
+          // [ul: [li:"a"] [li:"b"] ] のように子タグを書ける
+          // ──────────────────────────────────────────────
+          const inner = parseNestedContent();
+          consumeClosingBracket(isDouble);
+          // 再帰的に auva として処理
+          content = processContent(inner, vars);
+          isRawHtml = true;
+        }
+      } else {
+        // no content – void / empty element
+        consumeClosingBracket(isDouble);
+        content = null;
+        isRawHtml = false;
+      }
+
+      const attrs = parseOptionalAttrs();
+      return generateTag(tagName, content, attrs, vars, isRawHtml);
+    }
+
+    /**
+     * Parse a // script statement.
+     */
+    function parseScript() {
+      // current is '/' of '//'
+      if (text[i] !== "/" || text[i + 1] !== "/") return null;
+      i += 2;
+      skipWhitespace();
+
+      // Collect the rest of the "statement" until we hit a block or end of logical line.
+      // For control structures we expect keyword[cond]{body}
+
+      // Read identifier
+      let j = i;
+      while (j < len && /[a-zA-Z_]/.test(text[j])) j++;
+      const keyword = text.slice(i, j);
+      i = j;
+      skipWhitespace();
+
+      if (keyword === "repetition") {
+        // repetition[i = start, end, step]{ body }
+        if (text[i] !== "[") return "";
+        i++;
+        // parse inside [ ... ]
+        let depth = 1;
+        const start = i;
+        while (i < len && depth > 0) {
+          if (text[i] === "[") depth++;
+          else if (text[i] === "]") depth--;
+          if (depth > 0) i++;
+        }
+        const params = text.slice(start, i).trim();
+        if (i < len && text[i] === "]") i++;
+        skipWhitespace();
+
+        // parse params: i = start, end, step
+        const paramMatch = params.match(
+          /^([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*([^,]+)\s*,\s*([^,]+)\s*,\s*(.+)$/
+        );
+        if (!paramMatch) {
+          console.warn("Invalid repetition params:", params);
+          return "";
+        }
+        const varName = paramMatch[1];
+        const startVal = evaluateExpression(paramMatch[2].trim(), vars);
+        const endVal = evaluateExpression(paramMatch[3].trim(), vars);
+        const stepVal = evaluateExpression(paramMatch[4].trim(), vars) || 1;
+
+        const body = parseBalancedBlock();
+        let html = "";
+        const localVars = Object.create(vars);
+        // Copy current vars so mutations stay local-ish
+        for (const k of Object.keys(vars)) localVars[k] = vars[k];
+
+        let cur = Number(startVal);
+        const end = Number(endVal);
+        const step = Number(stepVal);
+
+        // Support both ascending and descending
+        if (step > 0) {
+          for (; cur <= end; cur += step) {
+            localVars[varName] = cur;
+            html += processContent(body, localVars);
+          }
+        } else if (step < 0) {
+          for (; cur >= end; cur += step) {
+            localVars[varName] = cur;
+            html += processContent(body, localVars);
+          }
+        }
+        return html;
+      }
+
+      if (keyword === "if" || keyword === "while") {
+        // if[cond]{body}  optionally followed by elif / else
+        // while[cond]{body}
+        if (text[i] !== "[") return "";
+        i++;
+        let depth = 1;
+        const start = i;
+        while (i < len && depth > 0) {
+          if (text[i] === "[") depth++;
+          else if (text[i] === "]") depth--;
+          if (depth > 0) i++;
+        }
+        const condStr = text.slice(start, i).trim();
+        if (i < len && text[i] === "]") i++;
+        skipWhitespace();
+        const body = parseBalancedBlock();
+
+        if (keyword === "while") {
+          let html = "";
+          const localVars = Object.create(vars);
+          for (const k of Object.keys(vars)) localVars[k] = vars[k];
+          let guard = 0;
+          while (isTruthy(evaluateExpression(condStr, localVars)) && guard < 10000) {
+            html += processContent(body, localVars);
+            // copy mutated vars back
+            for (const k of Object.keys(localVars)) {
+              if (Object.prototype.hasOwnProperty.call(localVars, k)) {
+                vars[k] = localVars[k];
+              }
+            }
+            guard++;
+          }
+          return html;
+        }
+
+        // if / elif / else chain
+        let html = "";
+        const localVars = Object.create(vars);
+        for (const k of Object.keys(vars)) localVars[k] = vars[k];
+
+        if (isTruthy(evaluateExpression(condStr, localVars))) {
+          html += processContent(body, localVars);
+          // skip remaining elif/else
+          while (true) {
+            skipWhitespace();
+            if (text.slice(i, i + 2) !== "//") break;
+            const save = i;
+            i += 2;
+            skipWhitespace();
+            let k = i;
+            while (k < len && /[a-zA-Z_]/.test(text[k])) k++;
+            const nextKw = text.slice(i, k);
+            if (nextKw === "elif" || nextKw === "else") {
+              i = k;
+              skipWhitespace();
+              if (nextKw === "elif") {
+                // skip [cond]
+                if (text[i] === "[") {
+                  i++;
+                  let d = 1;
+                  while (i < len && d > 0) {
+                    if (text[i] === "[") d++;
+                    else if (text[i] === "]") d--;
+                    if (d > 0) i++;
+                  }
+                  if (i < len && text[i] === "]") i++;
+                }
+              }
+              skipWhitespace();
+              parseBalancedBlock(); // discard
+            } else {
+              i = save;
+              break;
+            }
+          }
+        } else {
+          // try elif / else
+          let taken = false;
+          while (true) {
+            skipWhitespace();
+            if (text.slice(i, i + 2) !== "//") break;
+            const save = i;
+            i += 2;
+            skipWhitespace();
+            let k = i;
+            while (k < len && /[a-zA-Z_]/.test(text[k])) k++;
+            const nextKw = text.slice(i, k);
+            if (nextKw === "elif") {
+              i = k;
+              skipWhitespace();
+              if (text[i] !== "[") {
+                i = save;
+                break;
+              }
+              i++;
+              let d = 1;
+              const cs = i;
+              while (i < len && d > 0) {
+                if (text[i] === "[") d++;
+                else if (text[i] === "]") d--;
+                if (d > 0) i++;
+              }
+              const cStr = text.slice(cs, i).trim();
+              if (i < len && text[i] === "]") i++;
+              skipWhitespace();
+              const b = parseBalancedBlock();
+              if (!taken && isTruthy(evaluateExpression(cStr, localVars))) {
+                html += processContent(b, localVars);
+                taken = true;
+              }
+            } else if (nextKw === "else") {
+              i = k;
+              skipWhitespace();
+              const b = parseBalancedBlock();
+              if (!taken) {
+                html += processContent(b, localVars);
+                taken = true;
+              }
+            } else {
+              i = save;
+              break;
+            }
+          }
+        }
+        // merge local mutations
+        for (const k of Object.keys(localVars)) {
+          if (Object.prototype.hasOwnProperty.call(localVars, k)) {
+            vars[k] = localVars[k];
+          }
+        }
+        return html;
+      }
+
+      // Assignment or expression statement: // i += 1  or  // x = 5
+      // We already consumed the keyword; go back a bit if it looked like an id
+      // Actually for assignments the "keyword" is the variable name.
+      // Re-parse from after //
+      // We already advanced past keyword. Reconstruct.
+
+      // Better approach: for non-control keywords treat the whole line as assignment.
+      // Move i back to after //
+      // (We already consumed keyword, so reconstruct expression)
+
+      // Simple assignment support: name = expr  or  name += expr etc.
+      // Since we already ate the identifier as "keyword", use it as lhs.
+      const lhs = keyword;
+      skipWhitespace();
+      let op = null;
+      if (text.slice(i, i + 2) === "+=") {
+        op = "+=";
+        i += 2;
+      } else if (text.slice(i, i + 2) === "-=") {
+        op = "-=";
+        i += 2;
+      } else if (text.slice(i, i + 2) === "*=") {
+        op = "*=";
+        i += 2;
+      } else if (text.slice(i, i + 2) === "/=") {
+        op = "/=";
+        i += 2;
+      } else if (text[i] === "=") {
+        op = "=";
+        i++;
+      }
+
+      if (op) {
+        skipWhitespace();
+        // read until end of line or comment or next //
+        let k = i;
+        while (k < len && text[k] !== "\n" && !(text[k] === "/" && text[k + 1] === "/")) {
+          k++;
+        }
+        const rhs = text.slice(i, k).trim();
+        i = k;
+        const rhsVal = evaluateExpression(rhs, vars);
+        if (op === "=") {
+          vars[lhs] = rhsVal;
+        } else if (op === "+=") {
+          vars[lhs] = (Number(vars[lhs]) || 0) + Number(rhsVal);
+        } else if (op === "-=") {
+          vars[lhs] = (Number(vars[lhs]) || 0) - Number(rhsVal);
+        } else if (op === "*=") {
+          vars[lhs] = (Number(vars[lhs]) || 0) * Number(rhsVal);
+        } else if (op === "/=") {
+          vars[lhs] = (Number(vars[lhs]) || 0) / Number(rhsVal);
+        }
+      }
+      // ignore unknown script lines
+      return "";
+    }
+
+    // Main loop over the content
+    while (i < len) {
+      // ((  → start of a div block
+      if (text[i] === "(" && text[i + 1] === "(") {
+        i += 2;
+        // find matching ))  （文字列リテラル内の )) は無視）
+        let depth = 1;
+        const start = i;
+        while (i < len && depth > 0) {
+          // ★ 文字列内はスキップ（最優先）
+          if (text[i] === '"' || text[i] === "'") {
+            const q = text[i];
+            i++;
+            while (i < len && text[i] !== q) {
+              if (text[i] === "\\") i += 2;
+              else i++;
+            }
+            if (i < len) i++;
+            continue;
+          }
+          if (text[i] === "(" && text[i + 1] === "(") {
+            depth++;
+            i += 2;
+          } else if (text[i] === ")" && text[i + 1] === ")") {
+            depth--;
+            if (depth === 0) break;
+            i += 2;
+          } else {
+            i++;
+          }
+        }
+        const inner = text.slice(start, i);
+        if (i < len && text[i] === ")" && text[i + 1] === ")") i += 2;
+
+        const attrs = parseOptionalAttrs();
+        const resolvedAttrs = resolveAttrs(attrs, vars);
+        const attrPart = resolvedAttrs ? " " + resolvedAttrs : "";
+        const innerHtml = processContent(inner, vars);
+        result += `<div${attrPart}>${innerHtml}</div>`;
+        continue;
+      }
+
+      // Tag [ or [[
+      if (text[i] === "[") {
+        const tagHtml = parseTag();
+        if (tagHtml !== null) {
+          result += tagHtml;
+          continue;
+        }
+      }
+
+      // Script //
+      if (text[i] === "/" && text[i + 1] === "/") {
+        const scriptHtml = parseScript();
+        if (scriptHtml !== null) {
+          result += scriptHtml;
+          continue;
+        }
+      }
+
+      // Plain character – collect until next special construct
+      let j = i;
+      while (
+        j < len &&
+        !(text[j] === "(" && text[j + 1] === "(") &&
+        text[j] !== "[" &&
+        !(text[j] === "/" && text[j + 1] === "/")
+      ) {
+        j++;
+      }
+      if (j > i) {
+        const plain = text.slice(i, j);
+        // Only keep non-whitespace or meaningful text
+        const trimmed = plain.trim();
+        if (trimmed) {
+          // プレーンテキストも HTML エスケープ（<> がタグにならないように）
+          result += escapeHtml(interpolate(plain, vars));
+        } else {
+          // preserve single newlines maybe, but for cleanliness collapse pure whitespace
+          // keep nothing for pure whitespace between constructs
+        }
+        i = j;
+      } else {
+        // safety: advance one char
+        result += escapeHtml(text[i]);
+        i++;
+      }
+    }
+
+    return result;
+  }
+
+  /* ------------------------------------------------------------------ */
+  /*  Full .auva file processor                                         */
+  /* ------------------------------------------------------------------ */
+
+  async function processAuvaFile(rawText, baseUrl) {
+    const vars = Object.create(null);
+
+    // 1. Strip comments
+    let text = stripComments(rawText);
+
+    // 2. Process external links (variable inheritance)
+    await processLinks(text, baseUrl, vars);
+
+    // 3. Extract and parse all <value> blocks
+    const valueRe = /<value>([\s\S]*?)<\/value>/gi;
+    let m;
+    while ((m = valueRe.exec(text)) !== null) {
+      parseValueBlock(m[1], vars);
+    }
+
+    // 4. Remove the processed meta parts so only content remains
+    text = text
+      .replace(/<link\s+[^>]*?\/?>/gi, "")
+      .replace(/<value>[\s\S]*?<\/value>/gi, "");
+
+    // 5. Generate HTML from remaining content
+    const html = processContent(text.trim(), vars);
+    return html;
+  }
+
+  /* ------------------------------------------------------------------ */
+  /*  Public entry point                                                */
+  /* ------------------------------------------------------------------ */
+
+  async function loadSection(section) {
+    const src = section.getAttribute("data-src");
+    if (!src) return;
+
+    // Resolve base URL relative to the HTML page
+    let baseUrl;
+    try {
+      baseUrl = new URL(src, window.location.href).href;
+    } catch (e) {
+      console.error("Invalid data-src:", src);
+      return;
+    }
+
+    try {
+      const response = await fetch(baseUrl);
+      if (!response.ok) {
+        throw new Error(`Failed to load ${src}: ${response.status}`);
+      }
+      const rawText = await response.text();
+
+      // Process
+      const generated = await processAuvaFile(rawText, baseUrl);
+
+      // Replace content only after successful processing
+      section.innerHTML = generated;
+    } catch (err) {
+      console.error("auva.js error:", err);
+      // Keep original loading message on error (or optionally show error)
+      // section.innerHTML remains unchanged
+    }
+  }
+
+  function init() {
+    const sections = document.querySelectorAll("section[data-src]");
+    sections.forEach((sec) => {
+      // Fire and forget; each section is independent
+      loadSection(sec);
+    });
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init);
+  } else {
+    init();
+  }
+})();
