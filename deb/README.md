@@ -1,50 +1,59 @@
-# ブラウザ上の deb 実行環境 (Browser Debian / .deb runner)
+# ブラウザ上の deb 実行環境 (Drag & Drop 対応)
 
-無料・完全クライアントサイドで Debian 環境をブラウザ上に起動し、`.deb` パッケージを実行・インストールできる環境です。
+無料・完全クライアントサイドで Debian をブラウザ上に起動し、**ローカルの .deb ファイルをドラッグ＆ドロップしてインストール**できる環境です。
 
 ## 技術
 
-- **CheerpX** (Leaning Technologies): x86 → WebAssembly JIT。個人・FOSS 利用無料。
-- 公式公開 Debian ディスクイメージ (CloudDevice)
-- 変更はブラウザの IndexedDB に永続化
+- **CheerpX** (Leaning Technologies) — x86 → WebAssembly JIT（個人・FOSS 無料）
+- 公式公開 Debian ディスクイメージ (CloudDevice + Overlay + IndexedDB)
+- **DataDevice** で JS からバイナリを `/data` に書き込み
 
-## 使い方
+## 必須要件（ここで止まる場合のほぼすべて）
 
-1. このリポジトリを GitHub Pages で公開するか、ローカルで `python3 -m http.server` などで配信（**重要**: SharedArrayBuffer 用に以下のヘッダーが必要）
+CheerpX は `SharedArrayBuffer` を必要とします。以下の HTTP ヘッダーが必須です。
 
 ```
 Cross-Origin-Embedder-Policy: require-corp
 Cross-Origin-Opener-Policy: same-origin
 ```
 
-GitHub Pages の場合は Actions や `_headers` / Cloudflare などで設定してください。
+- **GitHub Pages の生URL** ではヘッダーを付けられないため、起動が「Linux環境作成中...」で止まることが多いです。
+- 対策:
+  1. Cloudflare Pages にデプロイして `_headers` で上記を設定
+  2. または公式 https://webvm.io を直接使う
+  3. ローカルなら nginx / `npx serve` + ヘッダー設定、または `http-server` の適切なオプション
 
-2. `index.html` を開く
-3. ターミナルが起動したら以下で `.deb` を扱えます
+ページを開いたときに `SharedArrayBuffer 不可` や `crossOriginIsolated = false` と出たら、ヘッダー不足です。
 
-### .deb のインストール例
+## 使い方
+
+1. 上記ヘッダー付きで `index.html` を配信する
+2. ページを開く → ステータスが「準備完了」になるまで待つ（初回はディスクイメージの on-demand 取得で数分かかる場合あり）
+3. 上の枠に **.deb ファイルをドラッグ＆ドロップ**
+4. ターミナルに表示されたコマンドを実行:
 
 ```bash
-# ネットワークがある場合（Tailscale Exit Node 推奨）
-curl -LO https://example.com/your-package.deb
-sudo dpkg -i your-package.deb
-# 依存関係
-sudo apt-get install -f
-
-# またはローカルに置いた .deb を /data 経由で使う場合は別途 DataDevice を拡張
+cp /data/ファイル名.deb /tmp/
+sudo dpkg -i /tmp/ファイル名.deb
+sudo apt-get install -f -y
 ```
 
-ネットワークが使えない場合は、WebVM 公式 (https://webvm.io) を直接使うか、Tailscale を接続してください。
+（DataDevice には実行ビットがないため、一度 `/tmp` など Overlay 上の場所にコピーしてから dpkg します）
+
+## ネットワーク
+
+外部からパッケージを取る場合は Tailscale（無料）の Exit Node が必要です。
+詳細は WebVM の Networking ドキュメントを参照。
 
 ## 制限
 
-- 現状 32-bit x86 のみ
-- 完全なネットワークには Tailscale が必要（無料アカウント可）
-- CheerpX は個人/FOSS 無料。商用組織利用はライセンス確認を
+- 32-bit x86 のみ
+- 初回起動はディスクチャンクのダウンロードで時間がかかる
+- CheerpX は個人・FOSS 無料。組織利用はライセンス確認を
 
 ## クレジット
 
 - CheerpX / WebVM by [Leaning Technologies](https://leaningtech.com/)
-- ライセンス: WebVM 部分 Apache-2.0、CheerpX は Community License（個人・FOSS 無料）
+- WebVM Apache-2.0 / CheerpX Community License（個人・FOSS 無料）
 
-詳細: https://cheerpx.io/docs/  / https://webvm.io
+https://cheerpx.io/docs/  /  https://webvm.io

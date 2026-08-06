@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>ブラウザ deb 実行環境 | Browser Debian Terminal</title>
+  <title>ブラウザ deb 実行環境 | Browser Debian Terminal + Drag&Drop</title>
   <style>
     * { box-sizing: border-box; }
     body {
@@ -19,50 +19,74 @@
       padding: 8px 12px;
       background: #161b22;
       border-bottom: 1px solid #30363d;
-      font-size: 14px;
+      font-size: 13px;
       display: flex;
       align-items: center;
-      gap: 12px;
+      gap: 10px;
       flex-wrap: wrap;
     }
     header a { color: #58a6ff; text-decoration: none; }
     header a:hover { text-decoration: underline; }
     #status { color: #8b949e; font-size: 12px; }
+    #dropzone {
+      margin: 6px 12px;
+      padding: 10px;
+      border: 2px dashed #30363d;
+      border-radius: 6px;
+      text-align: center;
+      font-size: 13px;
+      color: #8b949e;
+      background: #161b22;
+      transition: border-color 0.15s, background 0.15s;
+      cursor: pointer;
+    }
+    #dropzone.dragover {
+      border-color: #58a6ff;
+      background: #1f6feb22;
+      color: #c9d1d9;
+    }
+    #dropzone.ready { border-color: #3fb950; }
     #console {
       flex: 1;
       margin: 0;
-      padding: 8px;
+      padding: 8px 12px;
       overflow: auto;
       white-space: pre-wrap;
       word-break: break-all;
       background: #0d1117;
       color: #c9d1d9;
       outline: none;
-      font-size: 14px;
+      font-size: 13px;
       line-height: 1.4;
     }
     .hint {
       padding: 6px 12px;
       background: #21262d;
-      font-size: 12px;
+      font-size: 11px;
       color: #8b949e;
       border-top: 1px solid #30363d;
     }
+    code { background: #21262d; padding: 1px 4px; border-radius: 3px; }
   </style>
 </head>
 <body>
   <header>
     <strong>deb 実行環境</strong>
-    <span id="status">起動中...</span>
+    <span id="status">初期化チェック中...</span>
     <a href="https://webvm.io" target="_blank" rel="noopener">公式 WebVM</a>
-    <a href="https://cheerpx.io/docs/" target="_blank" rel="noopener">CheerpX Docs</a>
+    <a href="https://cheerpx.io/docs/" target="_blank" rel="noopener">CheerpX</a>
     <a href="README.md">README</a>
   </header>
+
+  <div id="dropzone">
+    ここに <strong>.deb</strong> ファイルをドラッグ＆ドロップ（起動後に有効）
+  </div>
+
   <pre id="console" tabindex="0"></pre>
+
   <div class="hint">
-    クリックしてフォーカス → キーボード入力可。
-    .deb 例: <code>curl -LO URL && sudo dpkg -i *.deb && sudo apt-get install -f</code>
-    （ネットワークには Tailscale Exit Node 推奨）
+    起動後: ドロップ → ターミナルで <code>cp /data/ファイル名.deb /tmp/ && sudo dpkg -i /tmp/ファイル名.deb</code><br>
+    COOP/COEP ヘッダー必須。足りない場合は https://webvm.io を利用してください。
   </div>
 
   <script type="module">
@@ -70,72 +94,156 @@
 
     const statusEl = document.getElementById("status");
     const consoleEl = document.getElementById("console");
+    const dropzone = document.getElementById("dropzone");
+
+    let dataDevice = null;
+    let cxReady = false;
 
     function setStatus(msg) {
       statusEl.textContent = msg;
+      console.log("[status]", msg);
     }
 
-    try {
-      setStatus("ディスクイメージ取得中...");
-
-      // 公開 Debian イメージ (WebVM 公式)
-      const cloudDevice = await CheerpX.CloudDevice.create(
-        "wss://disks.webvm.io/debian_large_20230522_5044875331.ext2"
-      );
-
-      // IndexedDB に書き込みを永続化
-      const idbDevice = await CheerpX.IDBDevice.create("deb-block1");
-      const overlayDevice = await CheerpX.OverlayDevice.create(cloudDevice, idbDevice);
-
-      // HTTP 上のファイルや JS データ用（必要に応じて拡張）
-      const webDevice = await CheerpX.WebDevice.create("");
-      const dataDevice = await CheerpX.DataDevice.create();
-
-      setStatus("Linux 環境作成中...");
-
-      const cx = await CheerpX.Linux.create({
-        mounts: [
-          { type: "ext2", path: "/", dev: overlayDevice },
-          { type: "dir", path: "/app", dev: webDevice },
-          { type: "dir", path: "/data", dev: dataDevice },
-          { type: "devs", path: "/dev" },
-        ],
-      });
-
-      cx.setConsole(consoleEl);
-
-      setStatus("bash 起動中...");
-
-      await cx.run("/bin/bash", [""], {
-        env: [
-          "HOME=/home/user",
-          "USER=user",
-          "SHELL=/bin/bash",
-          "EDITOR=vim",
-          "LANG=C.UTF-8",
-          "LC_ALL=C",
-          "TERM=xterm",
-        ],
-        cwd: "/home/user",
-        uid: 1000,
-        gid: 1000,
-      });
-
-      setStatus("準備完了 — クリックして入力");
-      consoleEl.focus();
-    } catch (err) {
-      setStatus("エラー");
-      consoleEl.textContent =
-        "起動に失敗しました。\n\n" +
-        "原因の多くは Cross-Origin Isolation (COOP/COEP) ヘッダー不足です。\n" +
-        "以下のヘッダーを付けて配信してください:\n" +
-        "  Cross-Origin-Embedder-Policy: require-corp\n" +
-        "  Cross-Origin-Opener-Policy: same-origin\n\n" +
-        "ローカルなら localhost でも COOP/COEP は必須です。\n" +
-        "簡易に試す場合は https://webvm.io を利用してください。\n\n" +
-        String(err && err.stack ? err.stack : err);
-      console.error(err);
+    function log(msg) {
+      consoleEl.textContent += msg + "\n";
+      consoleEl.scrollTop = consoleEl.scrollHeight;
     }
+
+    // --- 早期チェック ---
+    if (typeof SharedArrayBuffer === "undefined") {
+      setStatus("SharedArrayBuffer 不可");
+      log("ERROR: SharedArrayBuffer が使えません。\n" +
+          "原因: Cross-Origin Isolation が有効になっていません。\n\n" +
+          "配信サーバーに以下のヘッダーを付けてください:\n" +
+          "  Cross-Origin-Embedder-Policy: require-corp\n" +
+          "  Cross-Origin-Opener-Policy: same-origin\n\n" +
+          "GitHub Pages 生の場合はヘッダーを付けられないため、\n" +
+          "https://webvm.io を直接使うか、Cloudflare Pages 等でヘッダーを設定してください。");
+      dropzone.textContent = "環境要件を満たしていないためドロップ不可";
+      throw new Error("SharedArrayBuffer unavailable");
+    }
+
+    if (!crossOriginIsolated) {
+      setStatus("警告: crossOriginIsolated = false");
+      log("警告: window.crossOriginIsolated が false です。\n" +
+          "起動は試みますが、途中で止まる可能性が高いです。\n" +
+          "COOP/COEP ヘッダーを確認してください。\n");
+    } else {
+      setStatus("crossOriginIsolated OK");
+    }
+
+    // --- ドラッグ＆ドロップ ---
+    dropzone.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      dropzone.classList.add("dragover");
+    });
+    dropzone.addEventListener("dragleave", () => {
+      dropzone.classList.remove("dragover");
+    });
+    dropzone.addEventListener("drop", async (e) => {
+      e.preventDefault();
+      dropzone.classList.remove("dragover");
+      if (!cxReady || !dataDevice) {
+        log("まだ起動完了していません。しばらく待ってから再度ドロップしてください。");
+        return;
+      }
+      const files = e.dataTransfer.files;
+      if (!files || files.length === 0) return;
+
+      for (const file of files) {
+        if (!file.name.toLowerCase().endsWith(".deb")) {
+          log(`スキップ: ${file.name} (.deb 以外)`);
+          continue;
+        }
+        try {
+          setStatus(`読込中: ${file.name} (${(file.size/1024/1024).toFixed(1)} MB)`);
+          const buf = await file.arrayBuffer();
+          const u8 = new Uint8Array(buf);
+          // DataDevice は / から始まるパス
+          const path = "/" + file.name.replace(/[^a-zA-Z0-9._+-]/g, "_");
+          await dataDevice.writeFile(path, u8);
+          log(`\n[ドロップ完了] ${file.name} → /data${path}`);
+          log(`インストールコマンド例 (ターミナルに貼り付け):`);
+          log(`  cp /data${path} /tmp/ && sudo dpkg -i /tmp/${file.name.replace(/[^a-zA-Z0-9._+-]/g, "_")} && sudo apt-get install -f -y`);
+          log(`(DataDevice は実行ビットがないため一度 /tmp にコピーが必要です)\n`);
+          setStatus(`ドロップ完了: ${file.name}`);
+        } catch (err) {
+          log(`ドロップ失敗: ${file.name} — ${err}`);
+          console.error(err);
+        }
+      }
+    });
+
+    // --- メイン起動 ---
+    async function boot() {
+      try {
+        setStatus("1/5 ディスクイメージ接続中 (CloudDevice)...");
+        // 公式 large イメージ (on-demand なので初回は時間がかかることがある)
+        const cloudDevice = await CheerpX.CloudDevice.create(
+          "wss://disks.webvm.io/debian_large_20230522_5044875331.ext2"
+        );
+
+        setStatus("2/5 IndexedDB オーバーレイ作成中...");
+        const idbDevice = await CheerpX.IDBDevice.create("deb-block-v2");
+        const overlayDevice = await CheerpX.OverlayDevice.create(cloudDevice, idbDevice);
+
+        setStatus("3/5 DataDevice / WebDevice 作成中...");
+        const webDevice = await CheerpX.WebDevice.create("");
+        dataDevice = await CheerpX.DataDevice.create();
+
+        setStatus("4/5 Linux インスタンス作成中 (ここで時間がかかることがあります)...");
+        const cx = await CheerpX.Linux.create({
+          mounts: [
+            { type: "ext2", path: "/", dev: overlayDevice },
+            { type: "dir", path: "/app", dev: webDevice },
+            { type: "dir", path: "/data", dev: dataDevice },
+            { type: "devs", path: "/dev" },
+          ],
+        });
+
+        setStatus("5/5 コンソール接続 & bash 起動中...");
+        cx.setConsole(consoleEl);
+
+        // 非同期で bash を走らせる（setConsole でインタラクティブ）
+        cx.run("/bin/bash", [""], {
+          env: [
+            "HOME=/home/user",
+            "USER=user",
+            "SHELL=/bin/bash",
+            "EDITOR=vim",
+            "LANG=C.UTF-8",
+            "LC_ALL=C",
+            "TERM=xterm",
+            "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+          ],
+          cwd: "/home/user",
+          uid: 1000,
+          gid: 1000,
+        }).catch((e) => {
+          log("bash 終了またはエラー: " + e);
+        });
+
+        cxReady = true;
+        dropzone.classList.add("ready");
+        dropzone.innerHTML = "<strong>.deb</strong> をここにドロップ → /data に配置されます";
+        setStatus("準備完了 — クリックして入力 / .deb をドロップ");
+        consoleEl.focus();
+        log("\n=== ブラウザ Debian 環境 起動完了 ===");
+        log("ローカル .deb を上の枠にドロップしてください。");
+        log("パスワードを聞かれたら (通常不要ですが) user / password を試してください。\n");
+      } catch (err) {
+        setStatus("起動失敗");
+        log("\n起動に失敗しました:\n" + (err && err.stack ? err.stack : String(err)));
+        log("\nよくある原因:");
+        log("1. COOP/COEP ヘッダー不足 (SharedArrayBuffer)");
+        log("2. ネットワーク/WebSocket が disks.webvm.io に到達できない");
+        log("3. ブラウザの IndexedDB が無効 or 容量不足");
+        log("\n代替: https://webvm.io を開いて同じ操作をしてください。");
+        console.error(err);
+      }
+    }
+
+    boot();
   </script>
 </body>
 </html>
